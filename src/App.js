@@ -7,6 +7,7 @@ import DailyEntry from "./pages/DailyEntry";
 import BalanceReport from "./pages/BalanceReport";
 import LoginPage from "./pages/LoginPage";
 import "./assets/styles/main.css";
+import "./assets/styles/dashboard.css";
 
 const App = () => {
   const [view, setView] = useState("counters");
