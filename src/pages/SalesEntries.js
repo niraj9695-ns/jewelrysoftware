@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import "../assets/styles/forms.css"; // ✅ Required for proper styling
+import "../assets/styles/forms.css"; 
 
 const SalesEntries = ({ counter, onBack }) => {
   const [entries, setEntries] = useState([]);
