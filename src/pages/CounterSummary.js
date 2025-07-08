@@ -49,7 +49,7 @@ const CounterSummary = ({ counter, onBack }) => {
       <div className="section">
         <div className="section-header" style={{ display: "flex", justifyContent: "space-between" }}>
           <h2>Counter Summary: {counter.name}</h2>
-          <button onClick={onBack} className="btn-clear">
+          <button onClick={onBack} className="btn btn-secondary">
             Back
           </button>
         </div>
