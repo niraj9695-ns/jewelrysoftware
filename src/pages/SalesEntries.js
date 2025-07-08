@@ -1,15 +1,36 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
+import "../assets/styles/forms.css"; 
 
 const SalesEntries = ({ counter, onBack }) => {
   const [entries, setEntries] = useState([]);
+  const [purities, setPurities] = useState([]);
+  const [rangeType, setRangeType] = useState("range");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  const [selectedDate, setSelectedDate] = useState("");
   const token = localStorage.getItem("token");
 
   useEffect(() => {
-    if (counter) {
+    fetchPurities();
+  }, []);
+
+  useEffect(() => {
+    if (counter && purities.length > 0) {
       fetchSales();
     }
-  }, [counter]);
+  }, [counter, purities, rangeType, fromDate, toDate, selectedDate]);
+
+  const fetchPurities = async () => {
+    try {
+      const res = await axios.get("http://localhost:8080/api/purities", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setPurities(res.data);
+    } catch (error) {
+      console.error("Error fetching purities:", error);
+    }
+  };
 
   const fetchSales = async () => {
     try {
@@ -17,7 +38,17 @@ const SalesEntries = ({ counter, onBack }) => {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      const filtered = res.data.filter((s) => s.counter.id === counter.id);
+      let filtered = res.data.filter((s) => s.counter.id === counter.id);
+
+      if (rangeType === "range") {
+        if (fromDate && toDate) {
+          filtered = filtered.filter(
+            (entry) => entry.date >= fromDate && entry.date <= toDate
+          );
+        }
+      } else if (rangeType === "single" && selectedDate) {
+        filtered = filtered.filter((entry) => entry.date === selectedDate);
+      }
 
       const grouped = {};
 
@@ -27,14 +58,10 @@ const SalesEntries = ({ counter, onBack }) => {
         const weight = parseFloat(entry.soldWeight || 0);
 
         if (!grouped[date]) {
-          grouped[date] = {
-            date,
-            total: 0,
-            "23K": 0,
-            "98/88": 0,
-            "18K": 0,
-            "92/99": 0,
-          };
+          grouped[date] = { date, total: 0 };
+          purities.forEach((p) => {
+            grouped[date][p.name] = 0;
+          });
         }
 
         if (purity && grouped[date][purity] !== undefined) {
@@ -52,22 +79,79 @@ const SalesEntries = ({ counter, onBack }) => {
 
   return (
     <div className="view">
-      <button onClick={onBack} className="btn btn-secondary" style={{ marginBottom: "1rem" }}>
+      <button
+        onClick={onBack}
+        className="btn btn-secondary"
+        style={{ marginBottom: "1rem" }}
+      >
         ← Back to Counters
       </button>
+
       <h2>Sales Summary for {counter?.name}</h2>
 
+      <div className="form-row" style={{ marginBottom: "1.5rem" }}>
+        <div className="form-group">
+          <label htmlFor="rangeType">Date Filter</label>
+          <select
+            id="rangeType"
+            className="form-select"
+            value={rangeType}
+            onChange={(e) => setRangeType(e.target.value)}
+          >
+            <option value="range">Date Range</option>
+            <option value="single">Single Date</option>
+          </select>
+        </div>
+
+        {rangeType === "range" && (
+          <>
+            <div className="form-group">
+              <label htmlFor="fromDate">From Date</label>
+              <input
+                id="fromDate"
+                type="date"
+                className="form-input"
+                value={fromDate}
+                onChange={(e) => setFromDate(e.target.value)}
+              />
+            </div>
+            <div className="form-group">
+              <label htmlFor="toDate">To Date</label>
+              <input
+                id="toDate"
+                type="date"
+                className="form-input"
+                value={toDate}
+                onChange={(e) => setToDate(e.target.value)}
+              />
+            </div>
+          </>
+        )}
+
+        {rangeType === "single" && (
+          <div className="form-group">
+            <label htmlFor="selectedDate">Date</label>
+            <input
+              id="selectedDate"
+              type="date"
+              className="form-input"
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+            />
+          </div>
+        )}
+      </div>
+
       {entries.length === 0 ? (
-        <p>No sales entries found.</p>
+        <p>No sales entries found for selected date(s).</p>
       ) : (
         <table className="entries-table">
           <thead>
             <tr>
               <th>Date</th>
-              <th>23K</th>
-              <th>98/88</th>
-              <th>18K</th>
-              <th>92/99</th>
+              {purities.map((p) => (
+                <th key={p.id}>{p.name}</th>
+              ))}
               <th>Total</th>
             </tr>
           </thead>
@@ -75,10 +159,9 @@ const SalesEntries = ({ counter, onBack }) => {
             {entries.map((entry) => (
               <tr key={entry.date}>
                 <td>{entry.date}</td>
-                <td>{entry["23K"].toFixed(2)}</td>
-                <td>{entry["98/88"].toFixed(2)}</td>
-                <td>{entry["18K"].toFixed(2)}</td>
-                <td>{entry["92/99"].toFixed(2)}</td>
+                {purities.map((p) => (
+                  <td key={p.id}>{entry[p.name]?.toFixed(2) || "0.00"}</td>
+                ))}
                 <td style={{ fontWeight: "bold" }}>{entry.total.toFixed(2)}</td>
               </tr>
             ))}
