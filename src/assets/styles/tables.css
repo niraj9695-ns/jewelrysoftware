@@ -1,168 +1,375 @@
 .report-content {
-    margin-top: 2rem;
+  margin-top: 2rem;
+}
+
+/* Professional Excel-style Report Styling */
+.excel-report-container {
+  background: white;
+  border-radius: 12px;
+  padding: 2rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  border: 1px solid #e1e5e9;
+}
+
+.excel-report-container .report-header {
+  text-align: center;
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid #e9ecef;
+}
+
+.excel-report-container .report-header h2 {
+  color: #2c3e50;
+  font-size: 1.8rem;
+  margin-bottom: 0.5rem;
+  font-weight: 700;
+}
+
+.excel-report-container .date-range {
+  color: #6c757d;
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.excel-table-container {
+  margin: 2rem 0;
+  overflow-x: auto;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border: 1px solid #dee2e6;
+}
+
+.excel-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* Two-row header structure */
+.excel-table .main-header {
+  background: linear-gradient(135deg, #495057 0%, #343a40 100%);
+  color: white;
+  padding: 1rem;
+  text-align: center;
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border: 1px solid #343a40;
+}
+
+.excel-table .purity-headers {
+  background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+  color: white;
+  padding: 0.75rem;
+  text-align: center;
+  font-weight: 600;
+  font-size: 0.85rem;
+  border: 1px solid #495057;
+}
+
+.excel-table .particular-header {
+  text-align: left;
+  min-width: 150px;
+  background: linear-gradient(135deg, #495057 0%, #343a40 100%);
+}
+
+.excel-table .total-header {
+  background: linear-gradient(135deg, #6f42c1 0%, #5a2d91 100%);
+  min-width: 120px;
+}
+
+.excel-table td {
+  padding: 0.75rem 1rem;
+  border: 1px solid #dee2e6;
+  font-size: 0.9rem;
+}
+
+.excel-table .row-header {
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  font-weight: 600;
+  color: #2c3e50;
+  text-align: left;
+  border-right: 2px solid #dee2e6;
+}
+
+.excel-table .number-cell {
+  text-align: right;
+  font-family: "Courier New", monospace;
+  font-weight: 500;
+  color: #495057;
+  background: #fdfdfe;
+}
+
+.excel-table .total-column {
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  font-weight: 600;
+  color: #2c3e50;
+  border-left: 2px solid #6f42c1;
+}
+
+.excel-table .stock-needed {
+  background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+  font-weight: 600;
+  color: #856404;
+}
+
+.excel-table tbody tr:hover {
+  background: rgba(108, 117, 125, 0.05);
+}
+
+.excel-table .opening-row td:not(.row-header):not(.total-column) {
+  background: #f8f9fa;
+}
+
+.excel-table .issue-maal-row td:not(.row-header):not(.total-column) {
+  background: #fff5f5;
+}
+
+.excel-table .op-pur-row td:not(.row-header):not(.total-column) {
+  background: #f0fff4;
+}
+
+.excel-table .sales-row td:not(.row-header):not(.total-column) {
+  background: #fff0f6;
+}
+
+/* Summary Section */
+.report-summary-section {
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 2px solid #e9ecef;
+}
+
+.report-summary-section h3 {
+  color: #2c3e50;
+  font-size: 1.4rem;
+  margin-bottom: 1.5rem;
+  font-weight: 600;
+}
+
+.summary-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.summary-card {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  text-align: center;
+  border-left: 4px solid #6c757d;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  border: 1px solid #e9ecef;
+}
+
+.summary-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+}
+
+.summary-card.opening {
+  border-left-color: #6f42c1;
+}
+
+.summary-card.issue-maal {
+  border-left-color: #fd7e14;
+}
+
+.summary-card.op-pur {
+  border-left-color: #17a2b8;
+}
+
+.summary-card.sales {
+  border-left-color: #dc3545;
+}
+
+.summary-card.stock-needed {
+  border-left-color: #ffc107;
+}
+
+.summary-card.positive {
+  border-left-color: #28a745;
+}
+
+.summary-card.negative {
+  border-left-color: #dc3545;
+}
+
+.summary-card h4 {
+  font-size: 0.9rem;
+  color: #6c757d;
+  margin-bottom: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+}
+
+.summary-card .value {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #2c3e50;
+  font-family: "Courier New", monospace;
+}
+
+.summary-card.positive .value {
+  color: #28a745;
+}
+
+.summary-card.negative .value {
+  color: #dc3545;
 }
 
 .report-table {
-    width: 100%;
-    border-collapse: collapse;
-    background: white;
-    border-radius: 8px;
-    overflow: hidden;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
 }
 
 .report-table thead {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
+  background: linear-gradient(135deg, #495057 0%, #343a40 100%);
+  color: white;
 }
 
 .report-table th,
 .report-table td {
-    padding: 1rem;
-    text-align: left;
-    border-bottom: 1px solid #e9ecef;
+  padding: 1rem;
+  text-align: left;
+  border-bottom: 1px solid #e9ecef;
 }
 
 .report-table th {
-    font-weight: 600;
-    font-size: 0.9rem;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .report-table td {
-    font-size: 0.9rem;
-    color: #2c3e50;
+  font-size: 0.9rem;
+  color: #2c3e50;
 }
 
 .report-table tbody tr:hover {
-    background: #f8f9fa;
+  background: #f8f9fa;
 }
 
 .report-table tbody tr:nth-child(even) {
-    background: #f8f9fa;
+  background: #f8f9fa;
 }
 
 .report-table tbody tr:nth-child(even):hover {
-    background: #e9ecef;
+  background: #e9ecef;
 }
 
 .report-table .number {
-    text-align: right;
-    font-weight: 500;
-    font-family: 'Courier New', monospace;
+  text-align: right;
+  font-weight: 500;
+  font-family: "Courier New", monospace;
 }
 
 .report-table .total-row {
-    font-weight: 600;
-    background: #e8f5e8 !important;
+  font-weight: 600;
+  background: #f8f9fa !important;
 }
 
 .report-table .total-row td {
-    border-top: 2px solid #2ecc71;
+  border-top: 2px solid #6c757d;
 }
 
 .report-summary {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 1rem;
-    margin-bottom: 2rem;
-}
-
-.summary-card {
-    background: white;
-    padding: 1.5rem;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-    text-align: center;
-}
-
-.summary-card h4 {
-    font-size: 0.9rem;
-    color: #7f8c8d;
-    margin-bottom: 0.5rem;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-.summary-card .value {
-    font-size: 1.8rem;
-    font-weight: 700;
-    color: #2c3e50;
-    font-family: 'Courier New', monospace;
-}
-
-.summary-card.positive .value {
-    color: #2ecc71;
-}
-
-.summary-card.negative .value {
-    color: #e74c3c;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 2rem;
 }
 
 .no-data {
-    text-align: center;
-    padding: 3rem;
-    color: #7f8c8d;
+  text-align: center;
+  padding: 3rem;
+  color: #6c757d;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
 }
 
 .no-data h3 {
-    font-size: 1.2rem;
-    margin-bottom: 0.5rem;
+  font-size: 1.2rem;
+  margin-bottom: 0.5rem;
+  color: #495057;
 }
 
 .no-data p {
-    font-size: 0.9rem;
+  font-size: 0.9rem;
 }
 
 /* Responsive Tables */
 @media (max-width: 768px) {
-    .report-table {
-        font-size: 0.8rem;
-    }
-    
-    .report-table th,
-    .report-table td {
-        padding: 0.5rem;
-    }
-    
-    .report-table thead {
-        display: none;
-    }
-    
-    .report-table,
-    .report-table tbody,
-    .report-table tr,
-    .report-table td {
-        display: block;
-    }
-    
-    .report-table tr {
-        border: 1px solid #e9ecef;
-        border-radius: 8px;
-        margin-bottom: 1rem;
-        padding: 1rem;
-        background: white;
-    }
-    
-    .report-table td {
-        border: none;
-        padding: 0.5rem 0;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
-    
-    .report-table td::before {
-        content: attr(data-label);
-        font-weight: 600;
-        color: #7f8c8d;
-        font-size: 0.8rem;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-    
-    .report-summary {
-        grid-template-columns: 1fr;
-    }
+  .excel-table-container {
+    font-size: 0.8rem;
+  }
+
+  .excel-table th,
+  .excel-table td {
+    padding: 0.5rem;
+  }
+
+  .summary-cards-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .report-table {
+    font-size: 0.8rem;
+  }
+
+  .report-table th,
+  .report-table td {
+    padding: 0.5rem;
+  }
+
+  .report-table thead {
+    display: none;
+  }
+
+  .report-table,
+  .report-table tbody,
+  .report-table tr,
+  .report-table td {
+    display: block;
+  }
+
+  .report-table tr {
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+    padding: 1rem;
+    background: white;
+  }
+
+  .report-table td {
+    border: none;
+    padding: 0.5rem 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .report-table td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: #6c757d;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .report-summary {
+    grid-template-columns: 1fr;
+  }
 }

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   LogOut,
   User,
@@ -7,9 +7,68 @@ import {
   DollarSign,
   Package,
 } from "lucide-react";
+import axios from "axios";
 import "../assets/styles/dashboard.css";
 
-const Header = () => {
+const Header = ({ onLogout }) => {
+  const [totalCounters, setTotalCounters] = useState(0);
+  const [activePuritiesCount, setActivePuritiesCount] = useState(0);
+  const [salesEntriesCount, setSalesEntriesCount] = useState(0);
+  const [stockEntriesCount, setStockEntriesCount] = useState(0);
+
+  const token = localStorage.getItem("token");
+
+  useEffect(() => {
+    fetchTotalCounters();
+    fetchActivePurities();
+    fetchTotalSalesEntries();
+    fetchTotalStockEntries();
+  }, []);
+
+  const fetchTotalCounters = async () => {
+    try {
+      const res = await axios.get("http://localhost:8080/api/counters", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setTotalCounters(res.data.length);
+    } catch (error) {
+      console.error("Error fetching counters:", error);
+    }
+  };
+
+  const fetchActivePurities = async () => {
+    try {
+      const res = await axios.get("http://localhost:8080/api/purities", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setActivePuritiesCount(res.data.length); // All purities are assumed active
+    } catch (error) {
+      console.error("Error fetching purities:", error);
+    }
+  };
+
+  const fetchTotalSalesEntries = async () => {
+    try {
+      const res = await axios.get("http://localhost:8080/api/sales", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setSalesEntriesCount(res.data.length);
+    } catch (error) {
+      console.error("Error fetching sales entries:", error);
+    }
+  };
+
+  const fetchTotalStockEntries = async () => {
+    try {
+      const res = await axios.get("http://localhost:8080/api/issued-stock", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setStockEntriesCount(res.data.length);
+    } catch (error) {
+      console.error("Error fetching stock entries:", error);
+    }
+  };
+
   return (
     <>
       <header className="app-header">
@@ -20,18 +79,16 @@ const Header = () => {
               <User />
               <span>admin</span>
             </span>
-            <button className="btn btn-secondary">
+            <button className="btn btn-secondary" onClick={onLogout}>
               <LogOut />
               Logout
             </button>
           </div>
         </div>
       </header>
+
       <div className="view">
-        {" "}
-        {/* ⬅️ This class applies padding & width */}
         <div className="section">
-          {/* Stat Cards Section */}
           <div className="dashboard-stats">
             <div className="stat-card blue">
               <div className="stat-icon">
@@ -39,7 +96,7 @@ const Header = () => {
               </div>
               <div className="stat-content">
                 <h3>Total Counters</h3>
-                <span className="stat-number">0</span>
+                <span className="stat-number">{totalCounters}</span>
               </div>
             </div>
 
@@ -49,7 +106,7 @@ const Header = () => {
               </div>
               <div className="stat-content">
                 <h3>Active Purities</h3>
-                <span className="stat-number">0</span>
+                <span className="stat-number">{activePuritiesCount}</span>
               </div>
             </div>
 
@@ -58,8 +115,8 @@ const Header = () => {
                 <DollarSign />
               </div>
               <div className="stat-content">
-                <h3>Sales Entries</h3>
-                <span className="stat-number">0</span>
+                <h3>Total Sales Entries</h3>
+                <span className="stat-number">{salesEntriesCount}</span>
               </div>
             </div>
 
@@ -68,8 +125,8 @@ const Header = () => {
                 <Package />
               </div>
               <div className="stat-content">
-                <h3>Stock Entries</h3>
-                <span className="stat-number">0</span>
+                <h3>Total Stock Entries</h3>
+                <span className="stat-number">{stockEntriesCount}</span>
               </div>
             </div>
           </div>
