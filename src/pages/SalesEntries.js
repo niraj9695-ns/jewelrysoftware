@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import "../assets/styles/forms.css"; 
+import "../assets/styles/forms.css";
 
 const SalesEntries = ({ counter, onBack }) => {
   const [entries, setEntries] = useState([]);
   const [purities, setPurities] = useState([]);
+  const [columnTotals, setColumnTotals] = useState({});
   const [rangeType, setRangeType] = useState("range");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
@@ -71,7 +72,20 @@ const SalesEntries = ({ counter, onBack }) => {
         grouped[date].total += weight;
       });
 
-      setEntries(Object.values(grouped));
+      const result = Object.values(grouped);
+
+      // Column-wise totals
+      const totals = { total: 0 };
+      purities.forEach((p) => (totals[p.name] = 0));
+      result.forEach((entry) => {
+        purities.forEach((p) => {
+          totals[p.name] += entry[p.name];
+        });
+        totals.total += entry.total;
+      });
+
+      setEntries(result);
+      setColumnTotals(totals);
     } catch (error) {
       console.error("Error fetching sales entries:", error);
     }
@@ -166,6 +180,17 @@ const SalesEntries = ({ counter, onBack }) => {
               </tr>
             ))}
           </tbody>
+          <tfoot>
+            <tr style={{ fontWeight: "bold", backgroundColor: "#f9f9f9" }}>
+              <td>Total</td>
+              {purities.map((p) => (
+                <td key={p.id}>
+                  {(columnTotals[p.name] || 0).toFixed(2)}
+                </td>
+              ))}
+              <td>{(columnTotals.total || 0).toFixed(2)}</td>
+            </tr>
+          </tfoot>
         </table>
       )}
     </div>

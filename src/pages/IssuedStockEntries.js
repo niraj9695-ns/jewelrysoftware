@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import "../assets/styles/forms.css"; 
+import "../assets/styles/forms.css";
 
 const IssuedStockEntries = ({ counter, onBack }) => {
   const [entries, setEntries] = useState([]);
   const [purities, setPurities] = useState([]);
+  const [columnTotals, setColumnTotals] = useState({});
 
   const [rangeType, setRangeType] = useState("range");
   const [fromDate, setFromDate] = useState("");
@@ -42,7 +43,6 @@ const IssuedStockEntries = ({ counter, onBack }) => {
 
       let filtered = res.data.filter((s) => s.counter.id === counter.id);
 
-      // Filter by date
       if (rangeType === "range" && fromDate && toDate) {
         filtered = filtered.filter(
           (entry) => entry.date >= fromDate && entry.date <= toDate
@@ -78,7 +78,20 @@ const IssuedStockEntries = ({ counter, onBack }) => {
         grouped[key].total += weight;
       });
 
-      setEntries(Object.values(grouped));
+      const result = Object.values(grouped);
+
+      // Calculate column-wise totals
+      const totals = { total: 0 };
+      purities.forEach((p) => (totals[p.name] = 0));
+      result.forEach((entry) => {
+        purities.forEach((p) => {
+          totals[p.name] += entry[p.name];
+        });
+        totals.total += entry.total;
+      });
+
+      setEntries(result);
+      setColumnTotals(totals);
     } catch (error) {
       console.error("Error fetching issued stock entries:", error);
     }
@@ -177,6 +190,15 @@ const IssuedStockEntries = ({ counter, onBack }) => {
               </tr>
             ))}
           </tbody>
+          <tfoot>
+            <tr style={{ fontWeight: "bold", backgroundColor: "#f0f0f0" }}>
+              <td colSpan={2}>Total</td>
+              {purities.map((p) => (
+                <td key={p.id}>{(columnTotals[p.name] || 0).toFixed(2)}</td>
+              ))}
+              <td>{(columnTotals.total || 0).toFixed(2)}</td>
+            </tr>
+          </tfoot>
         </table>
       )}
     </div>
