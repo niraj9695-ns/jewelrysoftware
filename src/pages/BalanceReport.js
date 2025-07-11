@@ -17,6 +17,23 @@ const BalanceReport = () => {
 
   useEffect(() => {
     fetchCounters();
+
+    // Restore report data from localStorage
+    const savedReport = localStorage.getItem("balanceReportData");
+    const savedFilters = localStorage.getItem("balanceReportFilters");
+
+    if (savedReport) {
+      setReportData(JSON.parse(savedReport));
+    }
+
+    if (savedFilters) {
+      const filters = JSON.parse(savedFilters);
+      setCounterId(filters.counterId || "");
+      setRangeType(filters.rangeType || "range");
+      setFromDate(filters.fromDate || "");
+      setToDate(filters.toDate || "");
+      setSingleDate(filters.singleDate || "");
+    }
   }, []);
 
   const fetchCounters = async () => {
@@ -66,6 +83,13 @@ const BalanceReport = () => {
       }
 
       setReportData(response.data);
+
+      // Save to localStorage
+      localStorage.setItem("balanceReportData", JSON.stringify(response.data));
+      localStorage.setItem(
+        "balanceReportFilters",
+        JSON.stringify({ counterId, rangeType, fromDate, toDate, singleDate })
+      );
     } catch (error) {
       console.error("Error generating report:", error);
       alert("Failed to generate report.");
@@ -74,6 +98,12 @@ const BalanceReport = () => {
 
   const exportReport = () => {
     alert("Export functionality not implemented yet.");
+  };
+
+  const closeReport = () => {
+    setReportData(null);
+    localStorage.removeItem("balanceReportData");
+    localStorage.removeItem("balanceReportFilters");
   };
 
   const renderTable = () => {
@@ -139,6 +169,17 @@ const BalanceReport = () => {
               ))}
             </tbody>
           </table>
+        </div>
+
+        {/* Close Button */}
+        <div className="report-actions" style={{ marginTop: "1rem" }}>
+          <button
+            type="button"
+            className="btn btn-danger"
+            onClick={closeReport}
+          >
+            <i data-lucide="x-circle"></i> Close Report
+          </button>
         </div>
       </div>
     );

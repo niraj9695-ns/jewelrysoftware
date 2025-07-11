@@ -2,6 +2,11 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import "../assets/styles/forms.css";
 
+// PDF & Excel dependencies
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import * as XLSX from "xlsx";
+
 const IssuedStockEntries = ({ counter, onBack }) => {
   const [entries, setEntries] = useState([]);
   const [purities, setPurities] = useState([]);
@@ -97,6 +102,57 @@ const IssuedStockEntries = ({ counter, onBack }) => {
     }
   };
 
+  const downloadPDF = () => {
+    const doc = new jsPDF();
+    const tableColumn = ["Date", "Bill No", ...purities.map(p => p.name), "Total"];
+    const tableRows = [];
+
+    entries.forEach(entry => {
+      const row = [
+        entry.date,
+        entry.billNo,
+        ...purities.map(p => (entry[p.name] || 0).toFixed(2)),
+        entry.total.toFixed(2)
+      ];
+      tableRows.push(row);
+    });
+
+    const totalsRow = [
+      "Total",
+      "",
+      ...purities.map(p => (columnTotals[p.name] || 0).toFixed(2)),
+      (columnTotals.total || 0).toFixed(2)
+    ];
+    tableRows.push(totalsRow);
+
+    autoTable(doc, {
+      head: [tableColumn],
+      body: tableRows,
+      startY: 20,
+    });
+
+    doc.save(`Issued_Stock_${counter.name}.pdf`);
+  };
+
+  const downloadExcel = () => {
+    const wsData = [
+      ["Date", "Bill No", ...purities.map(p => p.name), "Total"],
+      ...entries.map(entry => [
+        entry.date,
+        entry.billNo,
+        ...purities.map(p => (entry[p.name] || 0).toFixed(2)),
+        entry.total.toFixed(2)
+      ]),
+      ["Total", "", ...purities.map(p => (columnTotals[p.name] || 0).toFixed(2)), (columnTotals.total || 0).toFixed(2)]
+    ];
+
+    const worksheet = XLSX.utils.aoa_to_sheet(wsData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "IssuedStock");
+
+    XLSX.writeFile(workbook, `Issued_Stock_${counter.name}.xlsx`);
+  };
+
   return (
     <div className="view">
       <button
@@ -108,6 +164,16 @@ const IssuedStockEntries = ({ counter, onBack }) => {
       </button>
 
       <h2>Issued Stock Summary for {counter?.name}</h2>
+
+      {/* Download buttons */}
+      <div className="report-actions" style={{ marginBottom: "1.5rem" }}>
+        <button className="btn btn-primary" onClick={downloadPDF}>
+          📄 Download PDF
+        </button>
+        <button className="btn btn-secondary" onClick={downloadExcel} style={{ marginLeft: "1rem" }}>
+          📊 Download Excel
+        </button>
+      </div>
 
       <div className="form-row" style={{ marginBottom: "1.5rem" }}>
         <div className="form-group">

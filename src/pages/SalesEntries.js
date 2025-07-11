@@ -2,6 +2,11 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import "../assets/styles/forms.css";
 
+// Import PDF and Excel libraries
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import * as XLSX from "xlsx";
+
 const SalesEntries = ({ counter, onBack }) => {
   const [entries, setEntries] = useState([]);
   const [purities, setPurities] = useState([]);
@@ -74,7 +79,6 @@ const SalesEntries = ({ counter, onBack }) => {
 
       const result = Object.values(grouped);
 
-      // Column-wise totals
       const totals = { total: 0 };
       purities.forEach((p) => (totals[p.name] = 0));
       result.forEach((entry) => {
@@ -91,6 +95,54 @@ const SalesEntries = ({ counter, onBack }) => {
     }
   };
 
+  const downloadPDF = () => {
+    const doc = new jsPDF();
+    const tableColumn = ["Date", ...purities.map((p) => p.name), "Total"];
+    const tableRows = [];
+
+    entries.forEach((entry) => {
+      const row = [
+        entry.date,
+        ...purities.map((p) => (entry[p.name] || 0).toFixed(2)),
+        entry.total.toFixed(2),
+      ];
+      tableRows.push(row);
+    });
+
+    const totalsRow = [
+      "Total",
+      ...purities.map((p) => (columnTotals[p.name] || 0).toFixed(2)),
+      (columnTotals.total || 0).toFixed(2),
+    ];
+    tableRows.push(totalsRow);
+
+    autoTable(doc, {
+      head: [tableColumn],
+      body: tableRows,
+      startY: 20,
+    });
+
+    doc.save(`Sales_Report_${counter.name}.pdf`);
+  };
+
+  const downloadExcel = () => {
+    const wsData = [
+      ["Date", ...purities.map((p) => p.name), "Total"],
+      ...entries.map((entry) => [
+        entry.date,
+        ...purities.map((p) => (entry[p.name] || 0).toFixed(2)),
+        entry.total.toFixed(2),
+      ]),
+      ["Total", ...purities.map((p) => (columnTotals[p.name] || 0).toFixed(2)), (columnTotals.total || 0).toFixed(2)],
+    ];
+
+    const worksheet = XLSX.utils.aoa_to_sheet(wsData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "SalesData");
+
+    XLSX.writeFile(workbook, `Sales_Report_${counter.name}.xlsx`);
+  };
+
   return (
     <div className="view">
       <button
@@ -102,6 +154,20 @@ const SalesEntries = ({ counter, onBack }) => {
       </button>
 
       <h2>Sales Summary for {counter?.name}</h2>
+
+      {/* Download buttons */}
+      <div className="report-actions" style={{ marginBottom: "1.5rem" }}>
+        <button className="btn btn-primary" onClick={downloadPDF}>
+          📄 Download PDF
+        </button>
+        <button
+          className="btn btn-secondary"
+          onClick={downloadExcel}
+          style={{ marginLeft: "1rem" }}
+        >
+          📊 Download Excel
+        </button>
+      </div>
 
       <div className="form-row" style={{ marginBottom: "1.5rem" }}>
         <div className="form-group">
@@ -176,7 +242,9 @@ const SalesEntries = ({ counter, onBack }) => {
                 {purities.map((p) => (
                   <td key={p.id}>{entry[p.name]?.toFixed(2) || "0.00"}</td>
                 ))}
-                <td style={{ fontWeight: "bold" }}>{entry.total.toFixed(2)}</td>
+                <td style={{ fontWeight: "bold" }}>
+                  {entry.total.toFixed(2)}
+                </td>
               </tr>
             ))}
           </tbody>
