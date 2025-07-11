@@ -1,8 +1,28 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  CartesianGrid,
+  Cell,
+} from "recharts";
+import { FiX } from "react-icons/fi"; 
 import "../assets/styles/forms.css";
 import "../assets/styles/tables.css";
 import "../assets/styles/dashboard.css";
+
+const COLORS = [
+  "#FF6B6B", // Red-ish
+  "#FFD93D", // Yellow-ish
+  "#6BCB77", // Green-ish
+  "#4D96FF", // Blue-ish
+  "#9D4EDD", // Purple-ish
+  "#FF9F1C", // Orange-ish
+];
 
 const BalanceReport = () => {
   const [counters, setCounters] = useState([]);
@@ -18,21 +38,9 @@ const BalanceReport = () => {
   useEffect(() => {
     fetchCounters();
 
-    // Restore report data from localStorage
-    const savedReport = localStorage.getItem("balanceReportData");
-    const savedFilters = localStorage.getItem("balanceReportFilters");
-
-    if (savedReport) {
-      setReportData(JSON.parse(savedReport));
-    }
-
-    if (savedFilters) {
-      const filters = JSON.parse(savedFilters);
-      setCounterId(filters.counterId || "");
-      setRangeType(filters.rangeType || "range");
-      setFromDate(filters.fromDate || "");
-      setToDate(filters.toDate || "");
-      setSingleDate(filters.singleDate || "");
+    const saved = localStorage.getItem("balanceReport");
+    if (saved) {
+      setReportData(JSON.parse(saved));
     }
   }, []);
 
@@ -75,7 +83,6 @@ const BalanceReport = () => {
           headers: { Authorization: `Bearer ${token}` },
         });
       } else {
-        // all-time
         response = await axios.get(`http://localhost:8080/api/report/summary`, {
           params: { counterId },
           headers: { Authorization: `Bearer ${token}` },
@@ -83,13 +90,7 @@ const BalanceReport = () => {
       }
 
       setReportData(response.data);
-
-      // Save to localStorage
-      localStorage.setItem("balanceReportData", JSON.stringify(response.data));
-      localStorage.setItem(
-        "balanceReportFilters",
-        JSON.stringify({ counterId, rangeType, fromDate, toDate, singleDate })
-      );
+      localStorage.setItem("balanceReport", JSON.stringify(response.data));
     } catch (error) {
       console.error("Error generating report:", error);
       alert("Failed to generate report.");
@@ -102,8 +103,24 @@ const BalanceReport = () => {
 
   const closeReport = () => {
     setReportData(null);
-    localStorage.removeItem("balanceReportData");
-    localStorage.removeItem("balanceReportFilters");
+    localStorage.removeItem("balanceReport");
+  };
+
+  const getPurityChartData = () => {
+    if (!reportData || reportData.length === 0) return [];
+
+    const purityTotals = {};
+    reportData.forEach((row) => {
+      Object.entries(row.purityWeights || {}).forEach(([purity, value]) => {
+        if (!purityTotals[purity]) purityTotals[purity] = 0;
+        purityTotals[purity] += value;
+      });
+    });
+
+    return Object.entries(purityTotals).map(([purity, total]) => ({
+      purity,
+      total: parseFloat(total.toFixed(3)),
+    }));
   };
 
   const renderTable = () => {
@@ -127,59 +144,50 @@ const BalanceReport = () => {
           </div>
         </div>
 
-        <div className="excel-table-container">
-          <table className="excel-table">
-            <thead>
-              <tr>
-                <th className="main-header">Type</th>
-                {purityKeys.map((key) => (
-                  <th key={key} className="purity-headers">
-                    {key}
-                  </th>
-                ))}
-                <th className="total-header">Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {reportData.map((row, idx) => (
-                <tr
-                  key={idx}
-                  className={
-                    row.type === "Opening"
-                      ? "opening-row"
-                      : row.type === "Issued"
-                      ? "issue-maal-row"
-                      : row.type === "Sold"
-                      ? "sales-row"
-                      : row.type === "Remaining"
-                      ? "stock-needed"
-                      : ""
-                  }
-                >
-                  <td className="row-header">{row.type}</td>
+        <div style={{ display: "flex", gap: "20px" }}>
+          <div className="excel-table-container" style={{ flex: 1 }}>
+            <table className="excel-table">
+              <thead>
+                <tr>
+                  <th className="main-header">Type</th>
                   {purityKeys.map((key) => (
-                    <td key={key} className="number-cell">
-                      {row.purityWeights[key]?.toFixed(3) || "0.000"}
-                    </td>
+                    <th key={key} className="purity-headers">
+                      {key}
+                    </th>
                   ))}
-                  <td className="total-column number-cell">
-                    {row.total.toFixed(3)}
-                  </td>
+                  <th className="total-header">Total</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Close Button */}
-        <div className="report-actions" style={{ marginTop: "1rem" }}>
-          <button
-            type="button"
-            className="btn btn-danger"
-            onClick={closeReport}
-          >
-            <i data-lucide="x-circle"></i> Close Report
-          </button>
+              </thead>
+              <tbody>
+                {reportData.map((row, idx) => (
+                  <tr
+                    key={idx}
+                    className={
+                      row.type === "Opening"
+                        ? "opening-row"
+                        : row.type === "Issued"
+                        ? "issue-maal-row"
+                        : row.type === "Sold"
+                        ? "sales-row"
+                        : row.type === "Remaining"
+                        ? "stock-needed"
+                        : ""
+                    }
+                  >
+                    <td className="row-header">{row.type}</td>
+                    {purityKeys.map((key) => (
+                      <td key={key} className="number-cell">
+                        {row.purityWeights[key]?.toFixed(3) || "0.000"}
+                      </td>
+                    ))}
+                    <td className="total-column number-cell">
+                      {row.total.toFixed(3)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     );
@@ -195,8 +203,12 @@ const BalanceReport = () => {
           </div>
         </div>
 
-        <div className="report-controls">
-          <div className="report-controls-grid">
+        <div
+          className="report-controls"
+          style={{ display: "flex", gap: "20px", alignItems: "flex-start" }}
+        >
+          {/* Filter Form */}
+          <div className="report-controls-grid" style={{ flex: 1 }}>
             <div className="form-group">
               <label htmlFor="reportCounterSelect">Counter</label>
               <select
@@ -287,7 +299,91 @@ const BalanceReport = () => {
               </button>
             </div>
           </div>
+
+          {/* Purity-wise Vertical Bar Chart */}
+          {reportData && reportData.length > 0 && (
+            <div
+              style={{
+                width: "420px",
+                height: "320px",
+                flexShrink: 0,
+                boxShadow:
+                  "0 4px 8px rgba(0, 0, 0, 0.1)",
+                borderRadius: "8px",
+                backgroundColor: "#fff",
+                padding: "12px",
+              }}
+            >
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={getPurityChartData()}
+                  margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis
+                    dataKey="purity"
+                    tick={{ fontWeight: "bold", fill: "#444" }}
+                    interval={0}
+                    angle={-45}
+                    textAnchor="end"
+                    height={60}
+                  />
+                  <YAxis />
+                  <Tooltip
+                    cursor={{ fill: "rgba(0,0,0,0.1)" }}
+                    formatter={(value) => value.toFixed(3)}
+                  />
+                  <Bar dataKey="total">
+                    {getPurityChartData().map((entry, index) => (
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={COLORS[index % COLORS.length]}
+                      />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
         </div>
+
+        {/* Beautiful Close Button */}
+        {reportData && reportData.length > 0 && (
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "flex-end",
+              marginTop: "10px",
+              marginRight: "20px",
+            }}
+          >
+            <button
+              onClick={closeReport}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+                backgroundColor: "#e63946",
+                color: "white",
+                border: "none",
+                padding: "8px 16px",
+                borderRadius: "30px",
+                cursor: "pointer",
+                fontWeight: "600",
+                fontSize: "14px",
+                boxShadow: "0 4px 8px rgba(230, 57, 70, 0.4)",
+                transition: "background-color 0.3s ease",
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#d62828")}
+              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#e63946")}
+              title="Close Balance Sheet"
+              aria-label="Close Balance Sheet"
+            >
+              <FiX size={18} />
+              Close Balance Sheet
+            </button>
+          </div>
+        )}
 
         <div id="balanceReportContent" className="report-content">
           {renderTable()}
