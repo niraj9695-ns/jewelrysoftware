@@ -7,6 +7,8 @@ import {
   ChevronDown,
   TrendingUp,
   Package,
+  Boxes,
+  ClipboardList,
 } from "lucide-react";
 import "../assets/styles/dashboard.css";
 
@@ -73,6 +75,15 @@ const Navigation = ({ setView, currentView }) => {
                 >
                   <Package />
                   <span>Stock Issue Entry</span>
+                </button>
+                <button
+                  className={`dropdown-item ${
+                    currentView === "stock-issue-bulk" ? "active" : ""
+                  }`}
+                  onClick={() => setView("stock-issue-bulk")}
+                >
+                  <ClipboardList />
+                  <span>Stock Issue Bulk Entry</span>
                 </button>
               </div>
             )}
