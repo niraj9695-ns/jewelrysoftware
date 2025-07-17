@@ -134,6 +134,264 @@
   min-height: 400px;
 }
 
+.nav-dropdown {
+  position: relative;
+  flex: 1;
+}
+
+.dropdown-btn {
+  width: 100%;
+  justify-content: space-between;
+}
+
+.dropdown-icon {
+  transition: transform 0.2s ease;
+}
+
+.nav-dropdown:hover .dropdown-icon {
+  transform: rotate(180deg);
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-10px);
+  transition: all 0.3s ease;
+  z-index: 1000;
+  margin-top: 0.5rem;
+}
+
+.nav-dropdown:hover .dropdown-menu {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.dropdown-item {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: none;
+  background: transparent;
+  color: #6c757d;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  text-align: left;
+}
+
+.dropdown-item:hover {
+  background: #f8f9fa;
+  color: #495057;
+}
+
+.dropdown-item:first-child {
+  border-radius: 8px 8px 0 0;
+}
+
+.dropdown-item:last-child {
+  border-radius: 0 0 8px 8px;
+}
+
+/* Daily Sales Dashboard Styles */
+.daily-sales-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.header-left-section {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.back-btn {
+  padding: 0.5rem;
+  border: none;
+  background: #f8f9fa;
+  border-radius: 8px;
+  cursor: pointer;
+  color: #6c757d;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+}
+
+.back-btn:hover {
+  background: #e9ecef;
+  color: #495057;
+}
+
+.back-btn i {
+  width: 20px;
+  height: 20px;
+}
+
+.header-info h2 {
+  font-size: 1.5rem;
+  color: #333;
+  margin-bottom: 0.25rem;
+  font-weight: 600;
+}
+
+.header-info p {
+  color: #6c757d;
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.header-actions-section {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.date-selector input {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #ced4da;
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+.daily-sales-table-container {
+  background: white;
+  border-radius: 12px;
+  padding: 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  overflow-x: auto;
+}
+
+.daily-sales-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.daily-sales-table th {
+  background: #f8f9fa;
+  color: #495057;
+  padding: 1rem;
+  text-align: center;
+  font-weight: 600;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 2px solid #e9ecef;
+  border-right: 1px solid #e9ecef;
+}
+
+.daily-sales-table th:first-child {
+  text-align: left;
+  background: #e9ecef;
+  font-weight: 700;
+}
+
+.daily-sales-table th:last-child {
+  background: #fff3cd;
+  color: #856404;
+  border-right: none;
+}
+
+.daily-sales-table td {
+  padding: 1rem;
+  border-bottom: 1px solid #e9ecef;
+  border-right: 1px solid #e9ecef;
+  text-align: center;
+}
+
+.daily-sales-table td:first-child {
+  text-align: center;
+  background: #f8f9fa;
+  font-weight: 600;
+  color: #495057;
+}
+
+.daily-sales-table td:last-child {
+  background: #d4edda;
+  font-weight: 600;
+  color: #155724;
+  border-right: none;
+}
+
+.daily-sales-table .total-row {
+  background: #fff3cd;
+}
+
+.daily-sales-table .total-row td {
+  background: #fff3cd;
+  font-weight: 700;
+  color: #856404;
+  border-top: 2px solid #ffc107;
+}
+
+.daily-sales-table .total-row td:first-child {
+  background: #ffc107;
+  color: #212529;
+}
+
+.daily-sales-table .total-row td:last-child {
+  background: #28a745;
+  color: white;
+}
+
+.daily-sales-input {
+  width: 80px;
+  padding: 0.5rem;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  text-align: center;
+  font-size: 0.9rem;
+  background: white;
+}
+
+.daily-sales-input:focus {
+  outline: none;
+  border-color: #f39c12;
+  box-shadow: 0 0 0 0.2rem rgba(243, 156, 18, 0.25);
+}
+.nav-btn i {
+  width: 16px;
+  height: 16px;
+}
+
+.nav-btn:hover {
+  background: #f8f9fa;
+  color: #495057;
+}
+
+.nav-btn.active {
+  background: #f39c12;
+  color: white;
+  box-shadow: 0 2px 8px rgba(243, 156, 18, 0.3);
+}
+
+.dashboard-content {
+  background: white;
+  border-radius: 12px;
+  padding: 2rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  min-height: 400px;
+}
+
 /* Counter Table Styles */
 .counters-table {
   width: 100%;

@@ -10,10 +10,11 @@ import {
   CartesianGrid,
   Cell,
 } from "recharts";
-import { FiX } from "react-icons/fi"; 
+import { FiX } from "react-icons/fi";
 import "../assets/styles/forms.css";
 import "../assets/styles/tables.css";
 import "../assets/styles/dashboard.css";
+import { BarChart3, Download, ArrowLeft } from "lucide-react";
 
 const COLORS = [
   "#FF6B6B", // Red-ish
@@ -287,15 +288,18 @@ const BalanceReport = () => {
                 className="btn btn-primary"
                 onClick={generateReport}
               >
-                <i data-lucide="bar-chart-3"></i> Generate Report
+                <BarChart3 size={16} style={{ marginRight: "8px" }} />
+                Generate Report
               </button>
+
               <button
                 type="button"
                 id="exportReportBtn"
                 className="btn btn-secondary"
                 onClick={exportReport}
               >
-                <i data-lucide="download"></i> Export Report
+                <Download size={16} style={{ marginRight: "8px" }} />
+                Export Report
               </button>
             </div>
           </div>
@@ -307,8 +311,7 @@ const BalanceReport = () => {
                 width: "420px",
                 height: "320px",
                 flexShrink: 0,
-                boxShadow:
-                  "0 4px 8px rgba(0, 0, 0, 0.1)",
+                boxShadow: "0 4px 8px rgba(0, 0, 0, 0.1)",
                 borderRadius: "8px",
                 backgroundColor: "#fff",
                 padding: "12px",
@@ -374,8 +377,12 @@ const BalanceReport = () => {
                 boxShadow: "0 4px 8px rgba(230, 57, 70, 0.4)",
                 transition: "background-color 0.3s ease",
               }}
-              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#d62828")}
-              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#e63946")}
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.backgroundColor = "#d62828")
+              }
+              onMouseLeave={(e) =>
+                (e.currentTarget.style.backgroundColor = "#e63946")
+              }
               title="Close Balance Sheet"
               aria-label="Close Balance Sheet"
             >

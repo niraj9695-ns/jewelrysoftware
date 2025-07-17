@@ -3,12 +3,15 @@ import Header from "./components/Header";
 import Navigation from "./components/Navigation";
 import Counters from "./pages/Counters";
 import GoldPurities from "./pages/GoldPurities";
-import DailyEntry from "./pages/DailyEntry";
+// import DailyEntry from "./pages/DailyEntry";
 import BalanceReport from "./pages/BalanceReport";
 import LoginPage from "./pages/LoginPage";
 import SalesEntries from "./pages/SalesEntries";
 import IssuedStockEntries from "./pages/IssuedStockEntries";
 import CounterSummary from "./pages/CounterSummary";
+import DailySalesDashboard from "./pages/DailySalesDashboard";
+import StockIssueEntry from "./pages/StockIssueEntry";
+
 import "./assets/styles/main.css";
 
 const App = () => {
@@ -53,8 +56,12 @@ const App = () => {
         );
       case "purities":
         return <GoldPurities />;
-      case "daily-entry":
-        return <DailyEntry />;
+
+      case "daily-sales-dashboard":
+        return <DailySalesDashboard switchView={setView} />;
+      case "stock-issue-entry":
+        return <StockIssueEntry />;
+
       case "balance-report":
         return <BalanceReport />;
       case "sales-entries":
@@ -89,7 +96,6 @@ const App = () => {
 
   return (
     <div className="main-app">
-      {/* Pass selectedCounter?.id to Header */}
       <Header onLogout={handleLogout} counterId={selectedCounter?.id} />
       <Navigation setView={setView} currentView={view} />
       <div className="dashboard-content view">{renderView()}</div>

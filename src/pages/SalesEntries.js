@@ -7,6 +7,8 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 
+import { FileDown, FileSpreadsheet } from "lucide-react";
+
 const SalesEntries = ({ counter, onBack }) => {
   const [entries, setEntries] = useState([]);
   const [purities, setPurities] = useState([]);
@@ -133,7 +135,11 @@ const SalesEntries = ({ counter, onBack }) => {
         ...purities.map((p) => (entry[p.name] || 0).toFixed(2)),
         entry.total.toFixed(2),
       ]),
-      ["Total", ...purities.map((p) => (columnTotals[p.name] || 0).toFixed(2)), (columnTotals.total || 0).toFixed(2)],
+      [
+        "Total",
+        ...purities.map((p) => (columnTotals[p.name] || 0).toFixed(2)),
+        (columnTotals.total || 0).toFixed(2),
+      ],
     ];
 
     const worksheet = XLSX.utils.aoa_to_sheet(wsData);
@@ -158,14 +164,16 @@ const SalesEntries = ({ counter, onBack }) => {
       {/* Download buttons */}
       <div className="report-actions" style={{ marginBottom: "1.5rem" }}>
         <button className="btn btn-primary" onClick={downloadPDF}>
-          📄 Download PDF
+          <FileDown size={18} style={{ marginRight: "0.5rem" }} />
+          Download PDF
         </button>
         <button
           className="btn btn-secondary"
           onClick={downloadExcel}
           style={{ marginLeft: "1rem" }}
         >
-          📊 Download Excel
+          <FileSpreadsheet size={18} style={{ marginRight: "0.5rem" }} />
+          Download Excel
         </button>
       </div>
 
@@ -242,9 +250,7 @@ const SalesEntries = ({ counter, onBack }) => {
                 {purities.map((p) => (
                   <td key={p.id}>{entry[p.name]?.toFixed(2) || "0.00"}</td>
                 ))}
-                <td style={{ fontWeight: "bold" }}>
-                  {entry.total.toFixed(2)}
-                </td>
+                <td style={{ fontWeight: "bold" }}>{entry.total.toFixed(2)}</td>
               </tr>
             ))}
           </tbody>
@@ -252,9 +258,7 @@ const SalesEntries = ({ counter, onBack }) => {
             <tr style={{ fontWeight: "bold", backgroundColor: "#f9f9f9" }}>
               <td>Total</td>
               {purities.map((p) => (
-                <td key={p.id}>
-                  {(columnTotals[p.name] || 0).toFixed(2)}
-                </td>
+                <td key={p.id}>{(columnTotals[p.name] || 0).toFixed(2)}</td>
               ))}
               <td>{(columnTotals.total || 0).toFixed(2)}</td>
             </tr>
