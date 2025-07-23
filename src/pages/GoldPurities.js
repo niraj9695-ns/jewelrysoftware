@@ -2,7 +2,8 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import "../assets/styles/dashboard.css";
 import "../assets/styles/forms.css";
-import { Edit, Trash2, Plus, Trash } from "lucide-react";
+import { Edit, Trash, Plus } from "lucide-react";
+import { useMaterial } from "../components/MaterialContext"; // Importing the context
 
 const GoldPurities = () => {
   const [purities, setPurities] = useState([]);
@@ -10,20 +11,26 @@ const GoldPurities = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
 
-  const apiBase = "http://localhost:8080/api/purities";
+  const { selectedMaterialId } = useMaterial(); // Using material context
   const token = localStorage.getItem("token");
 
   useEffect(() => {
-    fetchPurities();
-  }, []);
+    if (selectedMaterialId) {
+      fetchPurities();
+    }
+  }, [selectedMaterialId]);
 
   const fetchPurities = async () => {
+    // console.log("Selected Material ID:", selectedMaterialId);
     try {
-      const res = await axios.get(apiBase, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const res = await axios.get(
+        `http://localhost:8080/api/purities/by-material/${selectedMaterialId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
       setPurities(res.data);
     } catch (error) {
       console.error("Error fetching purities:", error);
@@ -45,13 +52,21 @@ const GoldPurities = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!selectedMaterialId) {
+      alert("Please select a material before adding purity.");
+      return;
+    }
+
     try {
       if (editingId) {
         alert("Update not implemented.");
       } else {
         await axios.post(
-          `${apiBase}/add`,
-          { name },
+          "http://localhost:8080/api/purities/add",
+          {
+            name,
+            materialId: selectedMaterialId,
+          },
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -68,8 +83,9 @@ const GoldPurities = () => {
 
   const deletePurity = async (id) => {
     if (!window.confirm("Are you sure you want to delete this purity?")) return;
+
     try {
-      await axios.delete(`${apiBase}/${id}`, {
+      await axios.delete(`http://localhost:8080/api/purities/${id}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },

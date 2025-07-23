@@ -6,30 +6,46 @@ import {
   Settings,
   DollarSign,
   Package,
+  ChevronDown,
 } from "lucide-react";
 import axios from "axios";
 import "../assets/styles/dashboard.css";
+import { useMaterial } from "../components/MaterialContext"; // ✅ Context import
 
 const Header = ({ onLogout }) => {
   const [totalCounters, setTotalCounters] = useState(0);
   const [activePuritiesCount, setActivePuritiesCount] = useState(0);
   const [salesEntriesCount, setSalesEntriesCount] = useState(0);
   const [stockEntriesCount, setStockEntriesCount] = useState(0);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [selectedType, setSelectedType] = useState("Gold");
 
+  const { selectedMaterialId, setSelectedMaterialId } = useMaterial(); // ✅ useContext
   const token = localStorage.getItem("token");
 
+  const materialMap = {
+    Gold: 1,
+    Silver: 2,
+    Diamond: 3,
+  };
+
   useEffect(() => {
-    fetchTotalCounters();
+    if (selectedMaterialId) {
+      fetchTotalCounters(selectedMaterialId);
+    }
     fetchActivePurities();
     fetchTotalSalesEntries();
     fetchTotalStockEntries();
-  }, []);
+  }, [selectedMaterialId]);
 
-  const fetchTotalCounters = async () => {
+  const fetchTotalCounters = async (materialId) => {
     try {
-      const res = await axios.get("http://localhost:8080/api/counters", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await axios.get(
+        `http://localhost:8080/api/counters/by-material/${materialId}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
       setTotalCounters(res.data.length);
     } catch (error) {
       console.error("Error fetching counters:", error);
@@ -41,7 +57,7 @@ const Header = ({ onLogout }) => {
       const res = await axios.get("http://localhost:8080/api/purities", {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setActivePuritiesCount(res.data.length); // All purities are assumed active
+      setActivePuritiesCount(res.data.length);
     } catch (error) {
       console.error("Error fetching purities:", error);
     }
@@ -69,11 +85,49 @@ const Header = ({ onLogout }) => {
     }
   };
 
+  const toggleDropdown = () => {
+    setIsDropdownOpen((prev) => !prev);
+  };
+
+  const handleTypeChange = (type) => {
+    setSelectedType(type);
+    setSelectedMaterialId(materialMap[type]); // ✅ update shared context
+    setIsDropdownOpen(false);
+  };
+
   return (
     <>
       <header className="app-header">
         <div className="header-content">
-          <h1>Gold Jewelry Management</h1>
+          <div className="header-left">
+            <h1>Gold Jewelry Management</h1>
+            <div className="jewelry-type-switcher">
+              <span className="jewelry-label">Type:</span>
+              <div className="jewelry-dropdown">
+                <button
+                  className="jewelry-dropdown-btn"
+                  onClick={toggleDropdown}
+                >
+                  <span>{selectedType}</span>
+                  <ChevronDown className="jewelry-dropdown-icon" />
+                </button>
+                {isDropdownOpen && (
+                  <div className="jewelry-dropdown-menu">
+                    {Object.keys(materialMap).map((type) => (
+                      <button
+                        key={type}
+                        className={`jewelry-dropdown-item ${type.toLowerCase()}`}
+                        onClick={() => handleTypeChange(type)}
+                      >
+                        {type}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
           <div className="header-actions">
             <span className="user-info">
               <User />

@@ -3,7 +3,6 @@ import Header from "./components/Header";
 import Navigation from "./components/Navigation";
 import Counters from "./pages/Counters";
 import GoldPurities from "./pages/GoldPurities";
-// import DailyEntry from "./pages/DailyEntry";
 import BalanceReport from "./pages/BalanceReport";
 import LoginPage from "./pages/LoginPage";
 import SalesEntries from "./pages/SalesEntries";
@@ -13,6 +12,7 @@ import DailySalesDashboard from "./pages/DailySalesDashboard";
 import StockIssueEntry from "./pages/StockIssueEntry";
 
 import "./assets/styles/main.css";
+import { MaterialProvider } from "./components/MaterialContext"; // ✅ import context provider
 
 const App = () => {
   const [view, setView] = useState("counters");
@@ -56,12 +56,10 @@ const App = () => {
         );
       case "purities":
         return <GoldPurities />;
-
       case "daily-sales-dashboard":
         return <DailySalesDashboard switchView={setView} />;
       case "stock-issue-entry":
         return <StockIssueEntry />;
-
       case "balance-report":
         return <BalanceReport />;
       case "sales-entries":
@@ -95,11 +93,15 @@ const App = () => {
   }
 
   return (
-    <div className="main-app">
-      <Header onLogout={handleLogout} counterId={selectedCounter?.id} />
-      <Navigation setView={setView} currentView={view} />
-      <div className="dashboard-content view">{renderView()}</div>
-    </div>
+    <MaterialProvider>
+      {" "}
+      {/* ✅ wrap entire app */}
+      <div className="main-app">
+        <Header onLogout={handleLogout} counterId={selectedCounter?.id} />
+        <Navigation setView={setView} currentView={view} />
+        <div className="dashboard-content view">{renderView()}</div>
+      </div>
+    </MaterialProvider>
   );
 };
 

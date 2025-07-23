@@ -1,46 +1,80 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import { Eye, Edit2, Trash2, Plus, BarChart2 } from "lucide-react"; // Added BarChart2 icon for summary
+import { Eye, Edit2, Trash2, Plus, BarChart2 } from "lucide-react";
+import { useMaterial } from "../components/MaterialContext";
 import "../assets/styles/dashboard.css";
 import "../assets/styles/forms.css";
 import "../assets/styles/main.css";
 
 const Counters = ({ onViewSales, onViewStock, onViewSummary }) => {
+  const { selectedMaterialId } = useMaterial();
   const [counters, setCounters] = useState([]);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
 
-  const apiBase = "http://localhost:8080/api/counters";
   const token = localStorage.getItem("token");
 
   useEffect(() => {
-    fetchCounters();
-  }, []);
+    if (selectedMaterialId) {
+      fetchCounters(selectedMaterialId);
+    }
+  }, [selectedMaterialId]);
 
-  const fetchCounters = async () => {
+  const fetchCounters = async (materialId) => {
+    console.log("Selected Material ID:", materialId);
+
+    // Date setup
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, "0");
+    const dd = String(today.getDate()).padStart(2, "0");
+    const formattedDate = `${yyyy}-${mm}-${dd}`;
+
     try {
-      const res = await axios.get(apiBase, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await axios.get(
+        `http://localhost:8080/api/counters/by-material/${materialId}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
 
       const countersWithCounts = await Promise.all(
         res.data.map(async (counter) => {
-          const [salesRes, stockRes] = await Promise.all([
-            axios.get(`http://localhost:8080/api/sales/by-counter/${counter.id}`, {
-              headers: { Authorization: `Bearer ${token}` },
-            }),
-            axios.get(`http://localhost:8080/api/issued-stock/by-counter/${counter.id}`, {
-              headers: { Authorization: `Bearer ${token}` },
-            }),
-          ]);
+          try {
+            const [salesRes, stockRes] = await Promise.all([
+              axios.get(
+                `http://localhost:8080/api/sales/by-counter/${counter.id}/material/${materialId}/date`,
+                {
+                  headers: { Authorization: `Bearer ${token}` },
+                  params: { date: formattedDate },
+                }
+              ),
+              axios.get(
+                `http://localhost:8080/api/issued-stock/by-counter/${counter.id}/material/${materialId}/from/${formattedDate}/to/${formattedDate}`,
+                {
+                  headers: { Authorization: `Bearer ${token}` },
+                }
+              ),
+            ]);
 
-          return {
-            ...counter,
-            salesCount: salesRes.data?.length ?? 0,
-            stockIssuedCount: stockRes.data?.length ?? 0,
-          };
+            return {
+              ...counter,
+              salesCount: salesRes.data?.length ?? 0,
+              stockIssuedCount: stockRes.data?.length ?? 0,
+            };
+          } catch (error) {
+            console.error(
+              `Error fetching counts for counter ${counter.id}:`,
+              error
+            );
+            return {
+              ...counter,
+              salesCount: 0,
+              stockIssuedCount: 0,
+            };
+          }
         })
       );
 
@@ -68,17 +102,32 @@ const Counters = ({ onViewSales, onViewStock, onViewSummary }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      if (editingId) {
-        alert("Editing not supported in backend yet.");
+      if (!selectedMaterialId) {
+        alert("Please select a material before creating a counter.");
         return;
-      } else {
-        await axios.post(
-          `${apiBase}/create?name=${encodeURIComponent(name)}`,
-          {},
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
       }
-      fetchCounters();
+
+      if (editingId) {
+        alert("Editing is not supported yet.");
+        return;
+      }
+
+      await axios.post(
+        "http://localhost:8080/api/counters/add",
+        {
+          name,
+          materialId: selectedMaterialId,
+          description,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      fetchCounters(selectedMaterialId);
       closeModal();
     } catch (error) {
       console.error("Error saving counter:", error);
@@ -87,12 +136,13 @@ const Counters = ({ onViewSales, onViewStock, onViewSummary }) => {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this counter?")) return;
+    if (!window.confirm("Are you sure you want to delete this counter?"))
+      return;
     try {
-      await axios.delete(`${apiBase}/${id}`, {
+      await axios.delete(`http://localhost:8080/api/counters/${id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      fetchCounters();
+      fetchCounters(selectedMaterialId);
     } catch (error) {
       console.error("Error deleting counter:", error);
       alert("Failed to delete counter. Please try again.");
@@ -104,7 +154,11 @@ const Counters = ({ onViewSales, onViewStock, onViewSummary }) => {
       <div className="section">
         <div
           className="section-header"
-          style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
         >
           <div>
             <h2>Counter List</h2>
@@ -114,7 +168,11 @@ const Counters = ({ onViewSales, onViewStock, onViewSummary }) => {
             className="add-counter-btn"
             onClick={() => openModal()}
             type="button"
-            style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem" }}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "0.5rem",
+            }}
           >
             <Plus size={16} /> Add Counter
           </button>
@@ -144,13 +202,11 @@ const Counters = ({ onViewSales, onViewStock, onViewSummary }) => {
                       <button
                         className="btn-icon"
                         title="View Sales Entries"
-                        onClick={() => {
-                          if (counter.salesCount > 0) {
-                            onViewSales(counter);
-                          } else {
-                            alert("No sales entries added yet");
-                          }
-                        }}
+                        onClick={() =>
+                          counter.salesCount > 0
+                            ? onViewSales(counter)
+                            : alert("No sales entries added yet")
+                        }
                         type="button"
                       >
                         <Eye size={14} />
@@ -160,13 +216,11 @@ const Counters = ({ onViewSales, onViewStock, onViewSummary }) => {
                       <button
                         className="btn-icon"
                         title="View Stock Issued Entries"
-                        onClick={() => {
-                          if (counter.stockIssuedCount > 0) {
-                            onViewStock(counter);
-                          } else {
-                            alert("No stock entries added yet");
-                          }
-                        }}
+                        onClick={() =>
+                          counter.stockIssuedCount > 0
+                            ? onViewStock(counter)
+                            : alert("No stock entries added yet")
+                        }
                         type="button"
                       >
                         <Eye size={14} />
@@ -174,7 +228,11 @@ const Counters = ({ onViewSales, onViewStock, onViewSummary }) => {
                     </td>
                     <td
                       className="counter-actions-cell"
-                      style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}
+                      style={{
+                        display: "flex",
+                        gap: "0.5rem",
+                        alignItems: "center",
+                      }}
                     >
                       <button
                         className="action-btn edit"
@@ -249,7 +307,11 @@ const Counters = ({ onViewSales, onViewStock, onViewSummary }) => {
                 />
               </div>
               <div className="form-actions">
-                <button type="button" className="btn-clear" onClick={closeModal}>
+                <button
+                  type="button"
+                  className="btn-clear"
+                  onClick={closeModal}
+                >
                   Cancel
                 </button>
                 <button type="submit" className="btn-primary">

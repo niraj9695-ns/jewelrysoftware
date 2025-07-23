@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { ArrowLeft, RotateCcw, Save } from "lucide-react";
 import axios from "axios";
+import { useMaterial } from "../components/MaterialContext"; // context for selectedMaterialId
 import "../assets/styles/dashboard.css";
 
 const DailySalesDashboard = ({ switchView }) => {
+  const { selectedMaterialId } = useMaterial();
   const [currentDate, setCurrentDate] = useState(
     () => new Date().toISOString().split("T")[0]
   );
@@ -14,18 +16,26 @@ const DailySalesDashboard = ({ switchView }) => {
   const token = localStorage.getItem("token");
 
   useEffect(() => {
-    fetchCountersAndPurities();
-  }, []);
+    if (selectedMaterialId) {
+      fetchCountersAndPurities(selectedMaterialId);
+    }
+  }, [selectedMaterialId]);
 
-  const fetchCountersAndPurities = async () => {
+  const fetchCountersAndPurities = async (materialId) => {
     try {
       const [counterRes, purityRes] = await Promise.all([
-        axios.get("http://localhost:8080/api/counters", {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-        axios.get("http://localhost:8080/api/purities", {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
+        axios.get(
+          `http://localhost:8080/api/counters/by-material/${materialId}`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        ),
+        axios.get(
+          `http://localhost:8080/api/purities/by-material/${materialId}`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        ),
       ]);
 
       setCounters(counterRes.data);
@@ -70,44 +80,51 @@ const DailySalesDashboard = ({ switchView }) => {
   };
 
   const saveSalesData = async () => {
-    let hasData = false;
+    if (!selectedMaterialId) {
+      alert("Material is not selected. Please select a material.");
+      return;
+    }
+
+    const salesPayloads = [];
+
+    counters.forEach((counter) => {
+      const salesDataMap = {};
+
+      purities.forEach((purity) => {
+        const key = getKey(counter.id, purity.id);
+        const value = parseFloat(salesData[key]);
+
+        if (!isNaN(value) && value > 0) {
+          salesDataMap[purity.name] = value;
+        }
+      });
+
+      if (Object.keys(salesDataMap).length > 0) {
+        salesPayloads.push({
+          materialId: selectedMaterialId,
+          counterId: counter.id,
+          date: currentDate,
+          salesData: salesDataMap,
+        });
+      }
+    });
+
+    if (salesPayloads.length === 0) {
+      alert("Please enter at least one value before saving.");
+      return;
+    }
 
     try {
-      const salesPayloads = counters
-        .map((counter) => {
-          const salesDataMap = {};
-
-          purities.forEach((purity) => {
-            const key = getKey(counter.id, purity.id);
-            const value = parseFloat(salesData[key]);
-
-            if (!isNaN(value) && value > 0) {
-              salesDataMap[purity.name] = value;
-              hasData = true;
-            }
-          });
-
-          return {
-            counterId: counter.id,
-            date: currentDate,
-            salesData: salesDataMap,
-          };
-        })
-        .filter((payload) => Object.keys(payload.salesData).length > 0);
-
-      if (!hasData) {
-        alert("Please enter at least one value before saving.");
-        return;
-      }
-
       await Promise.all(
         salesPayloads.map((payload) =>
-          axios.post("http://localhost:8080/api/sales/submit", payload, {
-            headers: { Authorization: `Bearer ${token}` },
+          axios.post("http://localhost:8080/api/sales/add", payload, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
           })
         )
       );
-
       alert("Sales data submitted successfully!");
     } catch (error) {
       console.error("Error submitting sales data:", error);
