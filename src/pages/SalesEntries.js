@@ -2,7 +2,6 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import "../assets/styles/forms.css";
 
-// Import PDF and Excel libraries
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
@@ -19,21 +18,15 @@ const SalesEntries = ({ counter, onBack }) => {
   const [selectedDate, setSelectedDate] = useState("");
   const token = localStorage.getItem("token");
 
-  useEffect(() => {
-    fetchPurities();
-  }, []);
-
-  useEffect(() => {
-    if (counter && purities.length > 0) {
-      fetchSales();
-    }
-  }, [counter, purities, rangeType, fromDate, toDate, selectedDate]);
-
   const fetchPurities = async () => {
+    if (!counter?.material?.id) return;
     try {
-      const res = await axios.get("http://localhost:8080/api/purities", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await axios.get(
+        `http://localhost:8080/api/purities/by-material/${counter.material.id}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
       setPurities(res.data);
     } catch (error) {
       console.error("Error fetching purities:", error);
@@ -41,26 +34,28 @@ const SalesEntries = ({ counter, onBack }) => {
   };
 
   const fetchSales = async () => {
+    if (!counter?.id || !counter?.material?.id) return;
+
     try {
-      const res = await axios.get("http://localhost:8080/api/sales", {
+      let url = "";
+
+      if (rangeType === "range" && fromDate && toDate) {
+        url = `http://localhost:8080/api/daily-sales/by-material-counter-daterange?materialId=${counter.material.id}&counterId=${counter.id}&startDate=${fromDate}&endDate=${toDate}`;
+      } else if (rangeType === "single" && selectedDate) {
+        url = `http://localhost:8080/api/daily-sales/by-material-counter-date?materialId=${counter.material.id}&counterId=${counter.id}&date=${selectedDate}`;
+      } else {
+        url = `http://localhost:8080/api/daily-sales/by-material-counter?materialId=${counter.material.id}&counterId=${counter.id}`;
+      }
+
+      const res = await axios.get(url, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      let filtered = res.data.filter((s) => s.counter.id === counter.id);
-
-      if (rangeType === "range") {
-        if (fromDate && toDate) {
-          filtered = filtered.filter(
-            (entry) => entry.date >= fromDate && entry.date <= toDate
-          );
-        }
-      } else if (rangeType === "single" && selectedDate) {
-        filtered = filtered.filter((entry) => entry.date === selectedDate);
-      }
+      const data = Array.isArray(res.data) ? res.data : [];
 
       const grouped = {};
 
-      filtered.forEach((entry) => {
+      data.forEach((entry) => {
         const date = entry.date;
         const purity = entry.purity?.name;
         const weight = parseFloat(entry.soldWeight || 0);
@@ -96,6 +91,16 @@ const SalesEntries = ({ counter, onBack }) => {
       console.error("Error fetching sales entries:", error);
     }
   };
+
+  useEffect(() => {
+    fetchPurities();
+  }, [counter]);
+
+  useEffect(() => {
+    if (counter && purities.length > 0) {
+      fetchSales();
+    }
+  }, [counter, purities, rangeType, fromDate, toDate, selectedDate]);
 
   const downloadPDF = () => {
     const doc = new jsPDF();
@@ -161,7 +166,6 @@ const SalesEntries = ({ counter, onBack }) => {
 
       <h2>Sales Summary for {counter?.name}</h2>
 
-      {/* Download buttons */}
       <div className="report-actions" style={{ marginBottom: "1.5rem" }}>
         <button className="btn btn-primary" onClick={downloadPDF}>
           <FileDown size={18} style={{ marginRight: "0.5rem" }} />

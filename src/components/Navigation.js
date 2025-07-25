@@ -1,4 +1,3 @@
-// Navigation.js
 import React, { useState } from "react";
 import {
   Store,
@@ -12,11 +11,22 @@ import {
   ClipboardList,
 } from "lucide-react";
 import "../assets/styles/dashboard.css";
+import { useMaterial } from "./MaterialContext"; 
 
 const Navigation = ({ setView, currentView }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const { selectedMaterialId } = useMaterial(); //
 
   const toggleDropdown = () => setIsDropdownOpen(!isDropdownOpen);
+
+  // ID to Name mapping
+  const materialNames = {
+    1: "Gold",
+    2: "Silver",
+    3: "Diamond",
+  };
+
+  const materialLabel = materialNames[selectedMaterialId] || "";
 
   return (
     <div className="view">
@@ -31,13 +41,13 @@ const Navigation = ({ setView, currentView }) => {
             <span>Counters</span>
           </button>
 
-          {/* Gold Purities */}
+          {/* Dynamic Material Purities */}
           <button
             className={`nav-btn ${currentView === "purities" ? "active" : ""}`}
             onClick={() => setView("purities")}
           >
             <Settings />
-            <span id="purityNavText">Gold Purities</span>
+            <span id="purityNavText">{materialLabel} Purities</span>
           </button>
 
           {/* Daily Entry with Dropdown */}
@@ -47,7 +57,7 @@ const Navigation = ({ setView, currentView }) => {
                 currentView === "daily-entry" ||
                 currentView === "daily-sales-dashboard" ||
                 currentView === "stock-issue-entry" ||
-                currentView === "stock-issue-bulk"
+                currentView === "issued-stock-dashboard"
                   ? "active"
                   : ""
               }`}

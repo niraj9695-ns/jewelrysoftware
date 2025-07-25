@@ -2,7 +2,6 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import "../assets/styles/forms.css";
 
-// PDF & Excel dependencies
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
@@ -32,10 +31,15 @@ const IssuedStockEntries = ({ counter, onBack }) => {
   }, [counter, purities, rangeType, fromDate, toDate, selectedDate]);
 
   const fetchPurities = async () => {
+    if (!counter?.material?.id) return;
+
     try {
-      const res = await axios.get("http://localhost:8080/api/purities", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await axios.get(
+        `http://localhost:8080/api/purities/by-material/${counter.material.id}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
       setPurities(res.data);
     } catch (err) {
       console.error("Error fetching purities:", err);
@@ -43,24 +47,28 @@ const IssuedStockEntries = ({ counter, onBack }) => {
   };
 
   const fetchStockEntries = async () => {
+    if (!counter?.id || !counter?.material?.id) return;
+
     try {
-      const res = await axios.get("http://localhost:8080/api/issued-stock", {
+      let url = "";
+
+      if (rangeType === "range" && fromDate && toDate) {
+        url = `http://localhost:8080/api/issued-stock/by-material-counter-daterange?materialId=${counter.material.id}&counterId=${counter.id}&startDate=${fromDate}&endDate=${toDate}`;
+      } else if (rangeType === "single" && selectedDate) {
+        url = `http://localhost:8080/api/issued-stock/by-material-counter-date?materialId=${counter.material.id}&counterId=${counter.id}&date=${selectedDate}`;
+      } else {
+        url = `http://localhost:8080/api/issued-stock/by-material-counter?materialId=${counter.material.id}&counterId=${counter.id}`;
+      }
+
+      const res = await axios.get(url, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      let filtered = res.data.filter((s) => s.counter.id === counter.id);
-
-      if (rangeType === "range" && fromDate && toDate) {
-        filtered = filtered.filter(
-          (entry) => entry.date >= fromDate && entry.date <= toDate
-        );
-      } else if (rangeType === "single" && selectedDate) {
-        filtered = filtered.filter((entry) => entry.date === selectedDate);
-      }
+      const data = Array.isArray(res.data) ? res.data : [];
 
       const grouped = {};
 
-      filtered.forEach((entry) => {
+      data.forEach((entry) => {
         const date = entry.date;
         const billNo = entry.billNo || "-";
         const purity = entry.purity?.name;
@@ -68,11 +76,7 @@ const IssuedStockEntries = ({ counter, onBack }) => {
         const key = `${date}__${billNo}`;
 
         if (!grouped[key]) {
-          grouped[key] = {
-            date,
-            billNo,
-            total: 0,
-          };
+          grouped[key] = { date, billNo, total: 0 };
           purities.forEach((p) => {
             grouped[key][p.name] = 0;
           });
@@ -87,7 +91,6 @@ const IssuedStockEntries = ({ counter, onBack }) => {
 
       const result = Object.values(grouped);
 
-      // Calculate column-wise totals
       const totals = { total: 0 };
       purities.forEach((p) => (totals[p.name] = 0));
       result.forEach((entry) => {
@@ -177,7 +180,6 @@ const IssuedStockEntries = ({ counter, onBack }) => {
 
       <h2>Issued Stock Summary for {counter?.name}</h2>
 
-      {/* Download buttons */}
       <div className="report-actions" style={{ marginBottom: "1.5rem" }}>
         <button className="btn btn-primary" onClick={downloadPDF}>
           <FileDown size={18} style={{ marginRight: "0.5rem" }} />
@@ -268,7 +270,9 @@ const IssuedStockEntries = ({ counter, onBack }) => {
                 {purities.map((p) => (
                   <td key={p.id}>{entry[p.name]?.toFixed(2) || "0.00"}</td>
                 ))}
-                <td style={{ fontWeight: "bold" }}>{entry.total.toFixed(2)}</td>
+                <td style={{ fontWeight: "bold" }}>
+                  {entry.total.toFixed(2)}
+                </td>
               </tr>
             ))}
           </tbody>

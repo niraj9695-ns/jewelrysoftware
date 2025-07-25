@@ -23,6 +23,7 @@ const Header = ({ onLogout }) => {
   const { selectedMaterialId, setSelectedMaterialId } = useMaterial(); // ✅ useContext
   const token = localStorage.getItem("token");
 
+  // Map from material type string to ID
   const materialMap = {
     Gold: 1,
     Silver: 2,
@@ -30,7 +31,15 @@ const Header = ({ onLogout }) => {
   };
 
   useEffect(() => {
+    // Sync context state with local selectedType on mount or selectedMaterialId change
     if (selectedMaterialId) {
+      // Find material type string by ID for UI display
+      const foundType = Object.keys(materialMap).find(
+        (key) => materialMap[key] === selectedMaterialId
+      );
+      if (foundType && foundType !== selectedType) {
+        setSelectedType(foundType);
+      }
       fetchTotalCounters(selectedMaterialId);
     }
     fetchActivePurities();
@@ -91,7 +100,7 @@ const Header = ({ onLogout }) => {
 
   const handleTypeChange = (type) => {
     setSelectedType(type);
-    setSelectedMaterialId(materialMap[type]); // ✅ update shared context
+    setSelectedMaterialId(materialMap[type]); // update shared context
     setIsDropdownOpen(false);
   };
 
@@ -100,14 +109,13 @@ const Header = ({ onLogout }) => {
       <header className="app-header">
         <div className="header-content">
           <div className="header-left">
-            <h1>Gold Jewelry Management</h1>
+            {/* Dynamic header title */}
+            <h1>{selectedType} Jewelry Management</h1>
+
             <div className="jewelry-type-switcher">
               <span className="jewelry-label">Type:</span>
               <div className="jewelry-dropdown">
-                <button
-                  className="jewelry-dropdown-btn"
-                  onClick={toggleDropdown}
-                >
+                <button className="jewelry-dropdown-btn" onClick={toggleDropdown}>
                   <span>{selectedType}</span>
                   <ChevronDown className="jewelry-dropdown-icon" />
                 </button>
