@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { ArrowLeft, RotateCcw, Save } from "lucide-react";
 import axios from "axios";
-import { useMaterial } from "../components/MaterialContext"; // context for selectedMaterialId
+import { useMaterial } from "../components/MaterialContext";
 import "../assets/styles/dashboard.css";
 
 const DailySalesDashboard = ({ switchView }) => {
@@ -115,16 +115,15 @@ const DailySalesDashboard = ({ switchView }) => {
     }
 
     try {
-      await Promise.all(
-        salesPayloads.map((payload) =>
-          axios.post("http://localhost:8080/api/daily-sales/add", payload, {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-          })
-        )
-      );
+      // Sequential POST requests to avoid SQLite locking
+      for (const payload of salesPayloads) {
+        await axios.post("http://localhost:8080/api/daily-sales/add", payload, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+      }
       alert("Sales data submitted successfully!");
     } catch (error) {
       console.error("Error submitting sales data:", error);
