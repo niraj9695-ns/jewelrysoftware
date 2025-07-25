@@ -14,15 +14,16 @@ import { FiX } from "react-icons/fi";
 import "../assets/styles/forms.css";
 import "../assets/styles/tables.css";
 import "../assets/styles/dashboard.css";
-import { BarChart3, Download, ArrowLeft } from "lucide-react";
+import { BarChart3, Download } from "lucide-react";
+import { useMaterial } from "../components/MaterialContext"; // ✅ Context import
 
 const COLORS = [
-  "#FF6B6B", // Red-ish
-  "#FFD93D", // Yellow-ish
-  "#6BCB77", // Green-ish
-  "#4D96FF", // Blue-ish
-  "#9D4EDD", // Purple-ish
-  "#FF9F1C", // Orange-ish
+  "#FF6B6B",
+  "#FFD93D",
+  "#6BCB77",
+  "#4D96FF",
+  "#9D4EDD",
+  "#FF9F1C",
 ];
 
 const BalanceReport = () => {
@@ -34,22 +35,27 @@ const BalanceReport = () => {
   const [singleDate, setSingleDate] = useState("");
   const [reportData, setReportData] = useState(null);
 
+  const { selectedMaterialId } = useMaterial(); // ✅ Get material from context
   const token = localStorage.getItem("token");
 
   useEffect(() => {
-    fetchCounters();
-
+    if (selectedMaterialId) {
+      fetchCounters();
+    }
     const saved = localStorage.getItem("balanceReport");
     if (saved) {
       setReportData(JSON.parse(saved));
     }
-  }, []);
+  }, [selectedMaterialId]);
 
   const fetchCounters = async () => {
     try {
-      const res = await axios.get("http://localhost:8080/api/counters", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await axios.get(
+        `http://localhost:8080/api/counters/by-material/${selectedMaterialId}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
       setCounters(res.data);
     } catch (error) {
       console.error("Error fetching counters:", error);
@@ -57,8 +63,8 @@ const BalanceReport = () => {
   };
 
   const generateReport = async () => {
-    if (!counterId) {
-      alert("Please select a counter.");
+    if (!counterId || !selectedMaterialId) {
+      alert("Please select both counter and material.");
       return;
     }
 
@@ -71,7 +77,11 @@ const BalanceReport = () => {
           return;
         }
         response = await axios.get(`http://localhost:8080/api/report`, {
-          params: { date: singleDate, counterId },
+          params: {
+            date: singleDate,
+            counterId,
+            materialId: selectedMaterialId,
+          },
           headers: { Authorization: `Bearer ${token}` },
         });
       } else if (rangeType === "range") {
@@ -80,14 +90,27 @@ const BalanceReport = () => {
           return;
         }
         response = await axios.get(`http://localhost:8080/api/report/summary`, {
-          params: { startDate: fromDate, endDate: toDate, counterId },
+          params: {
+            startDate: fromDate,
+            endDate: toDate,
+            counterId,
+            materialId: selectedMaterialId,
+          },
           headers: { Authorization: `Bearer ${token}` },
         });
       } else {
-        response = await axios.get(`http://localhost:8080/api/report/summary`, {
-          params: { counterId },
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        response = await axios.get(
+          `http://localhost:8080/api/report/monthly-summary`,
+          {
+            params: {
+              startDate: fromDate,
+              endDate: toDate,
+              counterId,
+              materialId: selectedMaterialId,
+            },
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
       }
 
       setReportData(response.data);
@@ -208,7 +231,6 @@ const BalanceReport = () => {
           className="report-controls"
           style={{ display: "flex", gap: "20px", alignItems: "flex-start" }}
         >
-          {/* Filter Form */}
           <div className="report-controls-grid" style={{ flex: 1 }}>
             <div className="form-group">
               <label htmlFor="reportCounterSelect">Counter</label>
@@ -304,7 +326,6 @@ const BalanceReport = () => {
             </div>
           </div>
 
-          {/* Purity-wise Vertical Bar Chart */}
           {reportData && reportData.length > 0 && (
             <div
               style={{
@@ -350,7 +371,6 @@ const BalanceReport = () => {
           )}
         </div>
 
-        {/* Beautiful Close Button */}
         {reportData && reportData.length > 0 && (
           <div
             style={{
@@ -375,16 +395,7 @@ const BalanceReport = () => {
                 fontWeight: "600",
                 fontSize: "14px",
                 boxShadow: "0 4px 8px rgba(230, 57, 70, 0.4)",
-                transition: "background-color 0.3s ease",
               }}
-              onMouseEnter={(e) =>
-                (e.currentTarget.style.backgroundColor = "#d62828")
-              }
-              onMouseLeave={(e) =>
-                (e.currentTarget.style.backgroundColor = "#e63946")
-              }
-              title="Close Balance Sheet"
-              aria-label="Close Balance Sheet"
             >
               <FiX size={18} />
               Close Balance Sheet

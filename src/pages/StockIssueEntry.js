@@ -3,6 +3,7 @@ import axios from "axios";
 import "../assets/styles/forms.css";
 import "../assets/styles/dashboard.css";
 import { Save, X } from "lucide-react";
+import { useMaterial } from "../components/MaterialContext"; // ✅ Correct custom hook
 
 const StockIssueEntry = () => {
   const [counters, setCounters] = useState([]);
@@ -14,29 +15,38 @@ const StockIssueEntry = () => {
   const [entries, setEntries] = useState({});
   const [billNo, setBillNo] = useState("");
 
+  const { selectedMaterialId } = useMaterial(); // ✅ use custom hook
   const token = localStorage.getItem("token");
 
   useEffect(() => {
-    fetchCounters();
-    fetchPurities();
-  }, []);
+    if (selectedMaterialId) {
+      fetchCounters(selectedMaterialId);
+      fetchPurities(selectedMaterialId);
+    }
+  }, [selectedMaterialId]);
 
-  const fetchCounters = async () => {
+  const fetchCounters = async (materialId) => {
     try {
-      const res = await axios.get("http://localhost:8080/api/counters", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await axios.get(
+        `http://localhost:8080/api/counters/by-material/${materialId}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
       setCounters(res.data);
     } catch (error) {
       console.error("Error fetching counters:", error);
     }
   };
 
-  const fetchPurities = async () => {
+  const fetchPurities = async (materialId) => {
     try {
-      const res = await axios.get("http://localhost:8080/api/purities", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await axios.get(
+        `http://localhost:8080/api/purities/by-material/${materialId}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
       setPurities(res.data);
     } catch (error) {
       console.error("Error fetching purities:", error);
@@ -51,7 +61,7 @@ const StockIssueEntry = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!counterId || !entryDate || !billNo) {
+    if (!counterId || !entryDate || !billNo || !selectedMaterialId) {
       alert("Please fill all required fields.");
       return;
     }
@@ -63,20 +73,17 @@ const StockIssueEntry = () => {
     }
 
     const payload = {
-      counterId,
       date: entryDate,
-      issuedData: entries,
+      counterId: parseInt(counterId),
+      materialId: selectedMaterialId, // ✅ Include material ID
       billNo,
+      issuedData: entries,
     };
 
     try {
-      await axios.post(
-        "http://localhost:8080/api/issued-stock/submit",
-        payload,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
+      await axios.post("http://localhost:8080/api/issued-stock/add", payload, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       alert("Stock entry saved successfully!");
       setEntries({});
       setBillNo("");
@@ -148,21 +155,25 @@ const StockIssueEntry = () => {
           <h3>Stock Entries by Purity</h3>
 
           <div className="purity-grid" id="purityInputs">
-            {purities.map((p) => (
-              <div key={p.id} className="purity-input-group">
-                <label htmlFor={`purity_${p.id}`}>{p.name}</label>
-                <input
-                  type="number"
-                  id={`purity_${p.id}`}
-                  min="0"
-                  step="0.001"
-                  placeholder="0.000"
-                  className="purity-input"
-                  value={entries[p.name] || ""}
-                  onChange={(e) => handleInputChange(p.name, e.target.value)}
-                />
-              </div>
-            ))}
+            {purities.length === 0 ? (
+              <p>No purities found for selected material.</p>
+            ) : (
+              purities.map((p) => (
+                <div key={p.id} className="purity-input-group">
+                  <label htmlFor={`purity_${p.id}`}>{p.name}</label>
+                  <input
+                    type="number"
+                    id={`purity_${p.id}`}
+                    min="0"
+                    step="0.001"
+                    placeholder="0.000"
+                    className="purity-input"
+                    value={entries[p.name] || ""}
+                    onChange={(e) => handleInputChange(p.name, e.target.value)}
+                  />
+                </div>
+              ))
+            )}
           </div>
 
           <div className="form-summary">
