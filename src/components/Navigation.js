@@ -1,3 +1,4 @@
+// Navigation.js
 import React, { useState } from "react";
 import {
   Store,
@@ -45,7 +46,8 @@ const Navigation = ({ setView, currentView }) => {
               className={`nav-btn dropdown-btn ${
                 currentView === "daily-entry" ||
                 currentView === "daily-sales-dashboard" ||
-                currentView === "stock-issue-entry"
+                currentView === "stock-issue-entry" ||
+                currentView === "stock-issue-bulk"
                   ? "active"
                   : ""
               }`}
@@ -78,9 +80,9 @@ const Navigation = ({ setView, currentView }) => {
                 </button>
                 <button
                   className={`dropdown-item ${
-                    currentView === "stock-issue-bulk" ? "active" : ""
+                    currentView === "issued-stock-dashboard" ? "active" : ""
                   }`}
-                  onClick={() => setView("stock-issue-bulk")}
+                  onClick={() => setView("issued-stock-dashboard")}
                 >
                   <ClipboardList />
                   <span>Stock Issue Bulk Entry</span>

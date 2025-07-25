@@ -10,9 +10,10 @@ import IssuedStockEntries from "./pages/IssuedStockEntries";
 import CounterSummary from "./pages/CounterSummary";
 import DailySalesDashboard from "./pages/DailySalesDashboard";
 import StockIssueEntry from "./pages/StockIssueEntry";
+import IssuedStockDashboard from "./pages/IssuedStockDashboard"; // ✅ NEW IMPORT
 
 import "./assets/styles/main.css";
-import { MaterialProvider } from "./components/MaterialContext"; // ✅ import context provider
+import { MaterialProvider } from "./components/MaterialContext";
 
 const App = () => {
   const [view, setView] = useState("counters");
@@ -60,6 +61,8 @@ const App = () => {
         return <DailySalesDashboard switchView={setView} />;
       case "stock-issue-entry":
         return <StockIssueEntry />;
+      case "issued-stock-dashboard": // ✅ NEW CASE
+        return <IssuedStockDashboard switchView={setView} />;
       case "balance-report":
         return <BalanceReport />;
       case "sales-entries":
@@ -94,8 +97,6 @@ const App = () => {
 
   return (
     <MaterialProvider>
-      {" "}
-      {/* ✅ wrap entire app */}
       <div className="main-app">
         <Header onLogout={handleLogout} counterId={selectedCounter?.id} />
         <Navigation setView={setView} currentView={view} />

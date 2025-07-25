@@ -23,15 +23,6 @@ const Counters = ({ onViewSales, onViewStock, onViewSummary }) => {
   }, [selectedMaterialId]);
 
   const fetchCounters = async (materialId) => {
-    console.log("Selected Material ID:", materialId);
-
-    // Date setup
-    const today = new Date();
-    const yyyy = today.getFullYear();
-    const mm = String(today.getMonth() + 1).padStart(2, "0");
-    const dd = String(today.getDate()).padStart(2, "0");
-    const formattedDate = `${yyyy}-${mm}-${dd}`;
-
     try {
       const res = await axios.get(
         `http://localhost:8080/api/counters/by-material/${materialId}`,
@@ -45,16 +36,23 @@ const Counters = ({ onViewSales, onViewStock, onViewSummary }) => {
           try {
             const [salesRes, stockRes] = await Promise.all([
               axios.get(
-                `http://localhost:8080/api/sales/by-counter/${counter.id}/material/${materialId}/date`,
+                "http://localhost:8080/api/daily-sales/by-material-counter",
                 {
                   headers: { Authorization: `Bearer ${token}` },
-                  params: { date: formattedDate },
+                  params: {
+                    materialId,
+                    counterId: counter.id,
+                  },
                 }
               ),
               axios.get(
-                `http://localhost:8080/api/issued-stock/by-counter/${counter.id}/material/${materialId}/from/${formattedDate}/to/${formattedDate}`,
+                "http://localhost:8080/api/issued-stock/by-material-counter",
                 {
                   headers: { Authorization: `Bearer ${token}` },
+                  params: {
+                    materialId,
+                    counterId: counter.id,
+                  },
                 }
               ),
             ]);
