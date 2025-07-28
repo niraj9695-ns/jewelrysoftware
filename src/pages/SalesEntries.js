@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import axios from "axios";
 import "../assets/styles/forms.css";
 
@@ -6,7 +6,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 
-import { FileDown, FileSpreadsheet } from "lucide-react";
+import { FileDown, FileSpreadsheet, Pencil } from "lucide-react";
 
 const SalesEntries = ({ counter, onBack }) => {
   const [entries, setEntries] = useState([]);
@@ -16,6 +16,10 @@ const SalesEntries = ({ counter, onBack }) => {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [selectedDate, setSelectedDate] = useState("");
+  const [editingRow, setEditingRow] = useState(null);
+  const [editedValues, setEditedValues] = useState({});
+
+  const editingRef = useRef(null);
   const token = localStorage.getItem("token");
 
   const fetchPurities = async () => {
@@ -102,6 +106,62 @@ const SalesEntries = ({ counter, onBack }) => {
     }
   }, [counter, purities, rangeType, fromDate, toDate, selectedDate]);
 
+  const handleEditClick = (entry) => {
+    setEditingRow(entry.date);
+    const values = {};
+    purities.forEach((p) => {
+      values[p.name] = entry[p.name]?.toFixed(2) || "0.00";
+    });
+    setEditedValues(values);
+  };
+
+  const handleSave = async (entry) => {
+    try {
+      const salesData = {};
+      purities.forEach((p) => {
+        salesData[p.name] = parseFloat(editedValues[p.name]) || 0;
+      });
+
+      const payload = {
+        date: entry.date,
+        counterId: counter.id,
+        materialId: counter.material.id,
+        salesData: salesData,
+      };
+
+      await axios.put("http://localhost:8080/api/daily-sales/update", payload, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      setEditingRow(null);
+      fetchSales();
+      alert("Sales updated successfully.");
+    } catch (error) {
+      console.error("Error updating sales:", error);
+      alert("Failed to update sales.");
+    }
+  };
+
+  // Close input boxes on outside click
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (editingRef.current && !editingRef.current.contains(event.target)) {
+        setEditingRow(null);
+      }
+    };
+
+    if (editingRow !== null) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [editingRow]);
+
   const downloadPDF = () => {
     const doc = new jsPDF();
     const tableColumn = ["Date", ...purities.map((p) => p.name), "Total"];
@@ -168,15 +228,14 @@ const SalesEntries = ({ counter, onBack }) => {
 
       <div className="report-actions" style={{ marginBottom: "1.5rem" }}>
         <button className="btn btn-primary" onClick={downloadPDF}>
-          <FileDown size={18} style={{ marginRight: "0.5rem" }} />
-          Download PDF
+          <FileDown size={18} style={{ marginRight: "0.5rem" }} /> Download PDF
         </button>
         <button
           className="btn btn-secondary"
           onClick={downloadExcel}
           style={{ marginLeft: "1rem" }}
         >
-          <FileSpreadsheet size={18} style={{ marginRight: "0.5rem" }} />
+          <FileSpreadsheet size={18} style={{ marginRight: "0.5rem" }} />{" "}
           Download Excel
         </button>
       </div>
@@ -245,16 +304,61 @@ const SalesEntries = ({ counter, onBack }) => {
                 <th key={p.id}>{p.name}</th>
               ))}
               <th>Total</th>
+              <th>Edit</th>
             </tr>
           </thead>
           <tbody>
             {entries.map((entry) => (
-              <tr key={entry.date}>
+              <tr
+                key={entry.date}
+                ref={editingRow === entry.date ? editingRef : null}
+              >
                 <td>{entry.date}</td>
                 {purities.map((p) => (
-                  <td key={p.id}>{entry[p.name]?.toFixed(2) || "0.00"}</td>
+                  <td key={p.id}>
+                    {editingRow === entry.date ? (
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={editedValues[p.name] || ""}
+                        onChange={(e) =>
+                          setEditedValues({
+                            ...editedValues,
+                            [p.name]: e.target.value,
+                          })
+                        }
+                        style={{
+                          backgroundColor: "#f1f1f1",
+                          borderRadius: "5px",
+                          padding: "4px",
+                          border: "1px solid #ccc",
+                          width: "70px",
+                          textAlign: "right",
+                        }}
+                      />
+                    ) : (
+                      (entry[p.name] || 0).toFixed(2)
+                    )}
+                  </td>
                 ))}
                 <td style={{ fontWeight: "bold" }}>{entry.total.toFixed(2)}</td>
+                <td>
+                  {editingRow === entry.date ? (
+                    <button
+                      className="btn btn-success"
+                      onClick={() => handleSave(entry)}
+                    >
+                      Save
+                    </button>
+                  ) : (
+                    <button
+                      className="btn btn-warning"
+                      onClick={() => handleEditClick(entry)}
+                    >
+                      <Pencil size={16} />
+                    </button>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>
@@ -265,6 +369,7 @@ const SalesEntries = ({ counter, onBack }) => {
                 <td key={p.id}>{(columnTotals[p.name] || 0).toFixed(2)}</td>
               ))}
               <td>{(columnTotals.total || 0).toFixed(2)}</td>
+              <td></td>
             </tr>
           </tfoot>
         </table>

@@ -23,28 +23,35 @@ const Header = ({ onLogout }) => {
   const { selectedMaterialId, setSelectedMaterialId } = useMaterial(); // ✅ useContext
   const token = localStorage.getItem("token");
 
-  // Map from material type string to ID
   const materialMap = {
     Gold: 1,
     Silver: 2,
     Diamond: 3,
   };
 
+  // ✅ On first mount: set Gold as default if not selected
   useEffect(() => {
-    // Sync context state with local selectedType on mount or selectedMaterialId change
+    if (!selectedMaterialId) {
+      setSelectedMaterialId(materialMap["Gold"]);
+      setSelectedType("Gold");
+    }
+  }, []);
+
+  // ✅ When selectedMaterialId changes, fetch stats & sync dropdown label
+  useEffect(() => {
     if (selectedMaterialId) {
-      // Find material type string by ID for UI display
       const foundType = Object.keys(materialMap).find(
         (key) => materialMap[key] === selectedMaterialId
       );
       if (foundType && foundType !== selectedType) {
         setSelectedType(foundType);
       }
+
       fetchTotalCounters(selectedMaterialId);
+      fetchActivePurities(selectedMaterialId);
+      fetchTotalSalesEntries(selectedMaterialId);
+      fetchTotalStockEntries(selectedMaterialId);
     }
-    fetchActivePurities();
-    fetchTotalSalesEntries();
-    fetchTotalStockEntries();
   }, [selectedMaterialId]);
 
   const fetchTotalCounters = async (materialId) => {
@@ -61,33 +68,42 @@ const Header = ({ onLogout }) => {
     }
   };
 
-  const fetchActivePurities = async () => {
+  const fetchActivePurities = async (materialId) => {
     try {
-      const res = await axios.get("http://localhost:8080/api/purities", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await axios.get(
+        `http://localhost:8080/api/purities/by-material/${materialId}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
       setActivePuritiesCount(res.data.length);
     } catch (error) {
       console.error("Error fetching purities:", error);
     }
   };
 
-  const fetchTotalSalesEntries = async () => {
+  const fetchTotalSalesEntries = async (materialId) => {
     try {
-      const res = await axios.get("http://localhost:8080/api/sales", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await axios.get(
+        `http://localhost:8080/api/daily-sales/by-material?materialId=${materialId}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
       setSalesEntriesCount(res.data.length);
     } catch (error) {
       console.error("Error fetching sales entries:", error);
     }
   };
 
-  const fetchTotalStockEntries = async () => {
+  const fetchTotalStockEntries = async (materialId) => {
     try {
-      const res = await axios.get("http://localhost:8080/api/issued-stock", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await axios.get(
+        `http://localhost:8080/api/issued-stock/by-material?materialId=${materialId}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
       setStockEntriesCount(res.data.length);
     } catch (error) {
       console.error("Error fetching stock entries:", error);
@@ -100,7 +116,7 @@ const Header = ({ onLogout }) => {
 
   const handleTypeChange = (type) => {
     setSelectedType(type);
-    setSelectedMaterialId(materialMap[type]); // update shared context
+    setSelectedMaterialId(materialMap[type]);
     setIsDropdownOpen(false);
   };
 
@@ -109,13 +125,15 @@ const Header = ({ onLogout }) => {
       <header className="app-header">
         <div className="header-content">
           <div className="header-left">
-            {/* Dynamic header title */}
             <h1>{selectedType} Jewelry Management</h1>
 
             <div className="jewelry-type-switcher">
               <span className="jewelry-label">Type:</span>
               <div className="jewelry-dropdown">
-                <button className="jewelry-dropdown-btn" onClick={toggleDropdown}>
+                <button
+                  className="jewelry-dropdown-btn"
+                  onClick={toggleDropdown}
+                >
                   <span>{selectedType}</span>
                   <ChevronDown className="jewelry-dropdown-icon" />
                 </button>

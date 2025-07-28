@@ -11,7 +11,7 @@ import {
   ClipboardList,
 } from "lucide-react";
 import "../assets/styles/dashboard.css";
-import { useMaterial } from "./MaterialContext"; 
+import { useMaterial } from "./MaterialContext";
 
 const Navigation = ({ setView, currentView }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);

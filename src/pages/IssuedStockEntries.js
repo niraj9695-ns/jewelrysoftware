@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import axios from "axios";
 import "../assets/styles/forms.css";
 
@@ -6,7 +6,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 
-import { FileDown, FileSpreadsheet } from "lucide-react";
+import { FileDown, FileSpreadsheet, Pencil } from "lucide-react";
 
 const IssuedStockEntries = ({ counter, onBack }) => {
   const [entries, setEntries] = useState([]);
@@ -17,6 +17,10 @@ const IssuedStockEntries = ({ counter, onBack }) => {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [selectedDate, setSelectedDate] = useState("");
+
+  const [editingRow, setEditingRow] = useState(null);
+  const [editedValues, setEditedValues] = useState({});
+  const editingRef = useRef(null);
 
   const token = localStorage.getItem("token");
 
@@ -106,6 +110,66 @@ const IssuedStockEntries = ({ counter, onBack }) => {
       console.error("Error fetching issued stock entries:", error);
     }
   };
+
+  const handleEditClick = (entry) => {
+    setEditingRow(`${entry.date}__${entry.billNo}`);
+    const values = {};
+    purities.forEach((p) => {
+      values[p.name] = entry[p.name]?.toFixed(2) || "0.00";
+    });
+    setEditedValues(values);
+  };
+
+  const handleSave = async (entry) => {
+    try {
+      const issuedData = {};
+      purities.forEach((p) => {
+        issuedData[p.name] = parseFloat(editedValues[p.name]) || 0;
+      });
+
+      const payload = {
+        date: entry.date,
+        counterId: counter.id,
+        materialId: counter.material.id,
+        billNo: entry.billNo,
+        issuedData,
+      };
+
+      await axios.put(
+        "http://localhost:8080/api/issued-stock/update",
+        payload,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      alert("Stock entry updated successfully!");
+      setEditingRow(null);
+      fetchStockEntries();
+    } catch (error) {
+      console.error("Error updating stock entry:", error);
+      alert("Failed to update stock entry.");
+    }
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (editingRef.current && !editingRef.current.contains(event.target)) {
+        setEditingRow(null);
+      }
+    };
+
+    if (editingRow !== null) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [editingRow]);
 
   const downloadPDF = () => {
     const doc = new jsPDF();
@@ -260,21 +324,65 @@ const IssuedStockEntries = ({ counter, onBack }) => {
                 <th key={p.id}>{p.name}</th>
               ))}
               <th>Total</th>
+              <th>Edit</th>
             </tr>
           </thead>
           <tbody>
-            {entries.map((entry, idx) => (
-              <tr key={idx}>
-                <td>{entry.date}</td>
-                <td>{entry.billNo}</td>
-                {purities.map((p) => (
-                  <td key={p.id}>{entry[p.name]?.toFixed(2) || "0.00"}</td>
-                ))}
-                <td style={{ fontWeight: "bold" }}>
-                  {entry.total.toFixed(2)}
-                </td>
-              </tr>
-            ))}
+            {entries.map((entry, idx) => {
+              const key = `${entry.date}__${entry.billNo}`;
+              return (
+                <tr key={key} ref={editingRow === key ? editingRef : null}>
+                  <td>{entry.date}</td>
+                  <td>{entry.billNo}</td>
+                  {purities.map((p) => (
+                    <td key={p.id}>
+                      {editingRow === key ? (
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={editedValues[p.name] || ""}
+                          onChange={(e) =>
+                            setEditedValues({
+                              ...editedValues,
+                              [p.name]: e.target.value,
+                            })
+                          }
+                          style={{
+                            width: "70px",
+                            padding: "4px",
+                            border: "1px solid #ccc",
+                            borderRadius: "5px",
+                            textAlign: "right",
+                          }}
+                        />
+                      ) : (
+                        (entry[p.name] || 0).toFixed(2)
+                      )}
+                    </td>
+                  ))}
+                  <td style={{ fontWeight: "bold" }}>
+                    {entry.total.toFixed(2)}
+                  </td>
+                  <td>
+                    {editingRow === key ? (
+                      <button
+                        className="btn btn-success"
+                        onClick={() => handleSave(entry)}
+                      >
+                        Save
+                      </button>
+                    ) : (
+                      <button
+                        className="btn btn-warning"
+                        onClick={() => handleEditClick(entry)}
+                      >
+                        <Pencil size={16} />
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
           <tfoot>
             <tr style={{ fontWeight: "bold", backgroundColor: "#f0f0f0" }}>
@@ -283,6 +391,7 @@ const IssuedStockEntries = ({ counter, onBack }) => {
                 <td key={p.id}>{(columnTotals[p.name] || 0).toFixed(2)}</td>
               ))}
               <td>{(columnTotals.total || 0).toFixed(2)}</td>
+              <td></td>
             </tr>
           </tfoot>
         </table>

@@ -172,7 +172,8 @@ const Counters = ({ onViewSales, onViewStock, onViewSummary }) => {
         >
           <div>
             <h2>Counter List</h2>
-            <p>{counters.length}/8 counters created</p>
+            {/* <p>{counters.length}/8 counters created</p> */}
+            <p>{counters.length} counters created</p>
           </div>
           <button
             className="add-counter-btn"
@@ -319,12 +320,13 @@ const Counters = ({ onViewSales, onViewStock, onViewSummary }) => {
               <div className="form-actions">
                 <button
                   type="button"
-                  className="btn-clear"
+                  // className="btn-clear"
+                  className="btn btn-secondary"
                   onClick={closeModal}
                 >
                   Cancel
                 </button>
-                <button type="submit" className="btn-primary">
+                <button type="submit" className="btn btn-primary">
                   {editingId ? "Update" : "Save"}
                 </button>
               </div>
