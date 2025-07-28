@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { Eye, Edit2, Trash2, Plus, BarChart2 } from "lucide-react";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+
 import { useMaterial } from "../components/MaterialContext";
 import "../assets/styles/dashboard.css";
 import "../assets/styles/forms.css";
@@ -101,35 +104,44 @@ const Counters = ({ onViewSales, onViewStock, onViewSummary }) => {
     e.preventDefault();
     try {
       if (!selectedMaterialId) {
-        alert("Please select a material before creating a counter.");
+        alert("Please select a material before proceeding.");
         return;
       }
+
+      const payload = {
+        name,
+        materialId: selectedMaterialId,
+        description,
+      };
 
       if (editingId) {
-        alert("Editing is not supported yet.");
-        return;
-      }
-
-      await axios.post(
-        "http://localhost:8080/api/counters/add",
-        {
-          name,
-          materialId: selectedMaterialId,
-          description,
-        },
-        {
+        // Edit counter
+        await axios.put(`http://localhost:8080/api/counters/update`, payload, {
           headers: {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
-        }
-      );
+          params: {
+            counterId: editingId,
+          },
+        });
+        toast.success("Counter updated successfully!");
+      } else {
+        // Add new counter
+        await axios.post("http://localhost:8080/api/counters/add", payload, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+        toast.success("Counter added successfully!");
+      }
 
       fetchCounters(selectedMaterialId);
       closeModal();
     } catch (error) {
       console.error("Error saving counter:", error);
-      alert("Failed to save counter. Please try again.");
+      toast.error("Failed to save counter. Please try again.");
     }
   };
 
@@ -297,13 +309,13 @@ const Counters = ({ onViewSales, onViewStock, onViewSummary }) => {
                   required
                 />
               </div>
-              <div className="form-group">
+              {/* <div className="form-group">
                 <label>Description</label>
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                 />
-              </div>
+              </div> */}
               <div className="form-actions">
                 <button
                   type="button"
@@ -313,13 +325,14 @@ const Counters = ({ onViewSales, onViewStock, onViewSummary }) => {
                   Cancel
                 </button>
                 <button type="submit" className="btn-primary">
-                  Save
+                  {editingId ? "Update" : "Save"}
                 </button>
               </div>
             </form>
           </div>
         </div>
       )}
+      <ToastContainer position="bottom-right" autoClose={3000} />
     </div>
   );
 };
