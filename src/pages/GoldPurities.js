@@ -3,7 +3,9 @@ import axios from "axios";
 import "../assets/styles/dashboard.css";
 import "../assets/styles/forms.css";
 import { Edit, Trash, Plus } from "lucide-react";
-import { useMaterial } from "../components/MaterialContext"; // Importing the context
+import { useMaterial } from "../components/MaterialContext";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 const GoldPurities = () => {
   const [purities, setPurities] = useState([]);
@@ -11,7 +13,7 @@ const GoldPurities = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
 
-  const { selectedMaterialId } = useMaterial(); // Using material context
+  const { selectedMaterialId } = useMaterial();
   const token = localStorage.getItem("token");
 
   useEffect(() => {
@@ -21,7 +23,6 @@ const GoldPurities = () => {
   }, [selectedMaterialId]);
 
   const fetchPurities = async () => {
-    // console.log("Selected Material ID:", selectedMaterialId);
     try {
       const res = await axios.get(
         `http://localhost:8080/api/purities/by-material/${selectedMaterialId}`,
@@ -48,7 +49,11 @@ const GoldPurities = () => {
     setModalOpen(true);
   };
 
-  const closeModal = () => setModalOpen(false);
+  const closeModal = () => {
+    setModalOpen(false);
+    setName("");
+    setEditingId(null);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -59,8 +64,22 @@ const GoldPurities = () => {
 
     try {
       if (editingId) {
-        alert("Update not implemented.");
+        // ✅ PUT request with purityId as query param, body without purityId
+        await axios.put(
+          `http://localhost:8080/api/purities/update?purityId=${editingId}`,
+          {
+            name,
+            materialId: selectedMaterialId,
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+        toast.success("Purity updated successfully!");
       } else {
+        // POST request to add new
         await axios.post(
           "http://localhost:8080/api/purities/add",
           {
@@ -73,11 +92,14 @@ const GoldPurities = () => {
             },
           }
         );
+        toast.success("Purity added successfully!");
       }
+
       fetchPurities();
       closeModal();
     } catch (error) {
-      console.error("Error saving purity:", error);
+      console.error("Error saving/updating purity:", error);
+      toast.error("Something went wrong.");
     }
   };
 
@@ -90,14 +112,17 @@ const GoldPurities = () => {
           Authorization: `Bearer ${token}`,
         },
       });
+      toast.success("Purity deleted successfully!");
       fetchPurities();
     } catch (error) {
       console.error("Error deleting purity:", error);
+      toast.error("Failed to delete purity.");
     }
   };
 
   return (
     <div className="view">
+      <ToastContainer />
       <div className="section">
         <div className="section-header">
           <div>

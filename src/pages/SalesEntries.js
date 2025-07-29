@@ -8,6 +8,9 @@ import * as XLSX from "xlsx";
 
 import { FileDown, FileSpreadsheet, Pencil } from "lucide-react";
 
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+
 const SalesEntries = ({ counter, onBack }) => {
   const [entries, setEntries] = useState([]);
   const [purities, setPurities] = useState([]);
@@ -34,6 +37,7 @@ const SalesEntries = ({ counter, onBack }) => {
       setPurities(res.data);
     } catch (error) {
       console.error("Error fetching purities:", error);
+      toast.error("Error fetching purities");
     }
   };
 
@@ -93,6 +97,7 @@ const SalesEntries = ({ counter, onBack }) => {
       setColumnTotals(totals);
     } catch (error) {
       console.error("Error fetching sales entries:", error);
+      toast.error("Error fetching sales entries");
     }
   };
 
@@ -138,14 +143,13 @@ const SalesEntries = ({ counter, onBack }) => {
 
       setEditingRow(null);
       fetchSales();
-      alert("Sales updated successfully.");
+      toast.success("Sales updated successfully");
     } catch (error) {
       console.error("Error updating sales:", error);
-      alert("Failed to update sales.");
+      toast.error("Failed to update sales");
     }
   };
 
-  // Close input boxes on outside click
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (editingRef.current && !editingRef.current.contains(event.target)) {
@@ -190,6 +194,7 @@ const SalesEntries = ({ counter, onBack }) => {
     });
 
     doc.save(`Sales_Report_${counter.name}.pdf`);
+    toast.success("PDF downloaded");
   };
 
   const downloadExcel = () => {
@@ -212,10 +217,13 @@ const SalesEntries = ({ counter, onBack }) => {
     XLSX.utils.book_append_sheet(workbook, worksheet, "SalesData");
 
     XLSX.writeFile(workbook, `Sales_Report_${counter.name}.xlsx`);
+    toast.success("Excel downloaded");
   };
 
   return (
     <div className="view">
+      <ToastContainer position="bottom-right" autoClose={3000} />
+
       <button
         onClick={onBack}
         className="btn btn-secondary"

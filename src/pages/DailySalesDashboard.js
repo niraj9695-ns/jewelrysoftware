@@ -3,6 +3,8 @@ import { ArrowLeft, RotateCcw, Save } from "lucide-react";
 import axios from "axios";
 import { useMaterial } from "../components/MaterialContext";
 import "../assets/styles/dashboard.css";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 const DailySalesDashboard = ({ switchView }) => {
   const { selectedMaterialId } = useMaterial();
@@ -42,7 +44,7 @@ const DailySalesDashboard = ({ switchView }) => {
       setPurities(purityRes.data);
     } catch (error) {
       console.error("Failed to load counters or purities:", error);
-      alert("Error fetching counters or purities. Please check API or auth.");
+      toast.error("Error fetching counters or purities.");
     }
   };
 
@@ -76,12 +78,13 @@ const DailySalesDashboard = ({ switchView }) => {
         });
       });
       setSalesData(newData);
+      toast.info("All inputs have been reset.");
     }
   };
 
   const saveSalesData = async () => {
     if (!selectedMaterialId) {
-      alert("Material is not selected. Please select a material.");
+      toast.warn("Please select a material before saving.");
       return;
     }
 
@@ -110,12 +113,11 @@ const DailySalesDashboard = ({ switchView }) => {
     });
 
     if (salesPayloads.length === 0) {
-      alert("Please enter at least one value before saving.");
+      toast.warn("Please enter at least one value before saving.");
       return;
     }
 
     try {
-      // Sequential POST requests to avoid SQLite locking
       for (const payload of salesPayloads) {
         await axios.post("http://localhost:8080/api/daily-sales/add", payload, {
           headers: {
@@ -124,10 +126,10 @@ const DailySalesDashboard = ({ switchView }) => {
           },
         });
       }
-      alert("Sales data submitted successfully!");
+      toast.success("Sales data submitted successfully!");
     } catch (error) {
       console.error("Error submitting sales data:", error);
-      alert("Failed to submit sales data. Please try again.");
+      toast.error("Failed to submit sales data.");
     }
   };
 
@@ -148,6 +150,7 @@ const DailySalesDashboard = ({ switchView }) => {
 
   return (
     <div id="dailySalesDashboardSection" className="section">
+      <ToastContainer position="bottom-right" autoClose={3000} />
       <div className="daily-sales-header">
         <div className="header-left-section">
           <button className="back-btn" onClick={() => switchView("counters")}>

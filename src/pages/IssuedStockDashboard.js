@@ -3,6 +3,8 @@ import { ArrowLeft, RotateCcw, Save } from "lucide-react";
 import axios from "axios";
 import { useMaterial } from "../components/MaterialContext";
 import "../assets/styles/dashboard.css";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 const IssuedStockDashboard = ({ switchView }) => {
   const { selectedMaterialId } = useMaterial();
@@ -43,7 +45,7 @@ const IssuedStockDashboard = ({ switchView }) => {
       setPurities(purityRes.data);
     } catch (error) {
       console.error("Failed to load counters or purities:", error);
-      alert("Error fetching counters or purities.");
+      toast.error("Error fetching counters or purities.");
     }
   };
 
@@ -74,31 +76,32 @@ const IssuedStockDashboard = ({ switchView }) => {
     if (window.confirm("Are you sure you want to reset all entries?")) {
       setStockData({});
       setBillNumbers({});
+      toast.info("All inputs have been reset.");
     }
   };
 
   const saveIssuedStockData = async () => {
     if (!selectedMaterialId) {
-      alert("Please select a material.");
+      toast.warn("Please select a material.");
       return;
     }
 
     const payloads = [];
 
-    counters.forEach((counter) => {
+    for (const counter of counters) {
       const issuedDataMap = {};
-      purities.forEach((purity) => {
+      for (const purity of purities) {
         const key = getKey(counter.id, purity.id);
         const value = parseFloat(stockData[key]);
         if (!isNaN(value) && value > 0) {
           issuedDataMap[purity.name] = value;
         }
-      });
+      }
 
       if (Object.keys(issuedDataMap).length > 0) {
         const billNo = billNumbers[counter.id];
         if (!billNo) {
-          alert(`Please enter Bill No for counter: ${counter.name}`);
+          toast.error(`Please enter Bill No for counter: ${counter.name}`);
           return;
         }
 
@@ -110,28 +113,30 @@ const IssuedStockDashboard = ({ switchView }) => {
           issuedData: issuedDataMap,
         });
       }
-    });
+    }
 
     if (payloads.length === 0) {
-      alert("Please enter at least one issued stock entry.");
+      toast.warn("Please enter at least one issued stock entry.");
       return;
     }
 
     try {
-      await Promise.all(
-        payloads.map((payload) =>
-          axios.post("http://localhost:8080/api/issued-stock/add", payload, {
+      for (const payload of payloads) {
+        await axios.post(
+          "http://localhost:8080/api/issued-stock/add",
+          payload,
+          {
             headers: {
               Authorization: `Bearer ${token}`,
               "Content-Type": "application/json",
             },
-          })
-        )
-      );
-      alert("Issued stock data submitted successfully!");
+          }
+        );
+      }
+      toast.success("Issued stock data submitted successfully!");
     } catch (error) {
       console.error("Error submitting issued stock data:", error);
-      alert("Submission failed. Please try again.");
+      toast.error("Submission failed. Please try again.");
     }
   };
 
@@ -152,6 +157,7 @@ const IssuedStockDashboard = ({ switchView }) => {
 
   return (
     <div id="issuedStockDashboardSection" className="section">
+      <ToastContainer position="bottom-right" autoClose={3000} />
       <div className="daily-sales-header">
         <div className="header-left-section">
           <button className="back-btn" onClick={() => switchView("counters")}>

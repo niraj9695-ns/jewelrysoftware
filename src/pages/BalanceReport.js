@@ -15,7 +15,8 @@ import "../assets/styles/forms.css";
 import "../assets/styles/tables.css";
 import "../assets/styles/dashboard.css";
 import { BarChart3, Download } from "lucide-react";
-import { useMaterial } from "../components/MaterialContext"; // ✅ Context import
+import { useMaterial } from "../components/MaterialContext";
+import { InfinitySpin } from "react-loader-spinner";
 
 const COLORS = [
   "#FF6B6B",
@@ -34,8 +35,9 @@ const BalanceReport = () => {
   const [toDate, setToDate] = useState("");
   const [singleDate, setSingleDate] = useState("");
   const [reportData, setReportData] = useState(null);
+  const [loading, setLoading] = useState(false);
 
-  const { selectedMaterialId } = useMaterial(); // ✅ Get material from context
+  const { selectedMaterialId } = useMaterial();
   const token = localStorage.getItem("token");
 
   useEffect(() => {
@@ -69,11 +71,13 @@ const BalanceReport = () => {
     }
 
     try {
+      setLoading(true);
       let response;
 
       if (rangeType === "single") {
         if (!singleDate) {
           alert("Please select a date.");
+          setLoading(false);
           return;
         }
         response = await axios.get(`http://localhost:8080/api/report`, {
@@ -87,6 +91,7 @@ const BalanceReport = () => {
       } else if (rangeType === "range") {
         if (!fromDate || !toDate) {
           alert("Please select start and end date.");
+          setLoading(false);
           return;
         }
         response = await axios.get(`http://localhost:8080/api/report/summary`, {
@@ -118,6 +123,8 @@ const BalanceReport = () => {
     } catch (error) {
       console.error("Error generating report:", error);
       alert("Failed to generate report.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -148,6 +155,21 @@ const BalanceReport = () => {
   };
 
   const renderTable = () => {
+    if (loading) {
+      return (
+        <div style={{ textAlign: "center", margin: "30px 0" }}>
+          {/* <Circles height={80} width={80} color="#4D96FF" /> */}
+          <InfinitySpin
+            height={150}
+            width={150}
+            color="#ef9f1fff"
+            ariaLabel="tail-spin-loading"
+          />
+          <p style={{ marginTop: "10px", color: "#666" }}>Loading Report...</p>
+        </div>
+      );
+    }
+
     if (!reportData || reportData.length === 0) {
       return (
         <div className="no-data">
@@ -306,7 +328,6 @@ const BalanceReport = () => {
             <div className="report-actions">
               <button
                 type="button"
-                id="generateReportBtn"
                 className="btn btn-primary"
                 onClick={generateReport}
               >
@@ -316,7 +337,6 @@ const BalanceReport = () => {
 
               <button
                 type="button"
-                id="exportReportBtn"
                 className="btn btn-secondary"
                 onClick={exportReport}
               >
@@ -403,6 +423,7 @@ const BalanceReport = () => {
           </div>
         )}
 
+        {/* ✅ Always render this so spinner can show independently */}
         <div id="balanceReportContent" className="report-content">
           {renderTable()}
         </div>

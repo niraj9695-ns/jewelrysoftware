@@ -1,18 +1,20 @@
+// 🟢 Updated IssuedStockEntries.jsx
+
+// Keep all imports as-is
 import React, { useEffect, useState, useRef } from "react";
 import axios from "axios";
 import "../assets/styles/forms.css";
-
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
-
 import { FileDown, FileSpreadsheet, Pencil } from "lucide-react";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 const IssuedStockEntries = ({ counter, onBack }) => {
   const [entries, setEntries] = useState([]);
   const [purities, setPurities] = useState([]);
   const [columnTotals, setColumnTotals] = useState({});
-
   const [rangeType, setRangeType] = useState("range");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
@@ -113,7 +115,9 @@ const IssuedStockEntries = ({ counter, onBack }) => {
 
   const handleEditClick = (entry) => {
     setEditingRow(`${entry.date}__${entry.billNo}`);
-    const values = {};
+    const values = {
+      billNo: entry.billNo || "",
+    };
     purities.forEach((p) => {
       values[p.name] = entry[p.name]?.toFixed(2) || "0.00";
     });
@@ -131,7 +135,7 @@ const IssuedStockEntries = ({ counter, onBack }) => {
         date: entry.date,
         counterId: counter.id,
         materialId: counter.material.id,
-        billNo: entry.billNo,
+        billNo: editedValues.billNo, // 🟢 Updated bill number
         issuedData,
       };
 
@@ -146,12 +150,12 @@ const IssuedStockEntries = ({ counter, onBack }) => {
         }
       );
 
-      alert("Stock entry updated successfully!");
+      toast.success("Stock entry updated successfully!");
       setEditingRow(null);
       fetchStockEntries();
     } catch (error) {
       console.error("Error updating stock entry:", error);
-      alert("Failed to update stock entry.");
+      toast.error("Failed to update stock entry.");
     }
   };
 
@@ -234,6 +238,8 @@ const IssuedStockEntries = ({ counter, onBack }) => {
 
   return (
     <div className="view">
+      <ToastContainer position="bottom-right" autoClose={3000} />
+
       <button
         onClick={onBack}
         className="btn btn-secondary"
@@ -244,6 +250,7 @@ const IssuedStockEntries = ({ counter, onBack }) => {
 
       <h2>Issued Stock Summary for {counter?.name}</h2>
 
+      {/* PDF/Excel Buttons */}
       <div className="report-actions" style={{ marginBottom: "1.5rem" }}>
         <button className="btn btn-primary" onClick={downloadPDF}>
           <FileDown size={18} style={{ marginRight: "0.5rem" }} />
@@ -259,6 +266,7 @@ const IssuedStockEntries = ({ counter, onBack }) => {
         </button>
       </div>
 
+      {/* Date Filters */}
       <div className="form-row" style={{ marginBottom: "1.5rem" }}>
         <div className="form-group">
           <label htmlFor="rangeType">Date Filter</label>
@@ -312,6 +320,7 @@ const IssuedStockEntries = ({ counter, onBack }) => {
         )}
       </div>
 
+      {/* Table */}
       {entries.length === 0 ? (
         <p>No stock issued entries found.</p>
       ) : (
@@ -328,12 +337,33 @@ const IssuedStockEntries = ({ counter, onBack }) => {
             </tr>
           </thead>
           <tbody>
-            {entries.map((entry, idx) => {
+            {entries.map((entry) => {
               const key = `${entry.date}__${entry.billNo}`;
               return (
                 <tr key={key} ref={editingRow === key ? editingRef : null}>
                   <td>{entry.date}</td>
-                  <td>{entry.billNo}</td>
+                  <td>
+                    {editingRow === key ? (
+                      <input
+                        type="text"
+                        value={editedValues.billNo}
+                        onChange={(e) =>
+                          setEditedValues({
+                            ...editedValues,
+                            billNo: e.target.value,
+                          })
+                        }
+                        style={{
+                          width: "80px",
+                          padding: "4px",
+                          border: "1px solid #ccc",
+                          borderRadius: "5px",
+                        }}
+                      />
+                    ) : (
+                      entry.billNo
+                    )}
+                  </td>
                   {purities.map((p) => (
                     <td key={p.id}>
                       {editingRow === key ? (
