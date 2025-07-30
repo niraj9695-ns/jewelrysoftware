@@ -17,6 +17,9 @@ import "../assets/styles/dashboard.css";
 import { BarChart3, Download } from "lucide-react";
 import { useMaterial } from "../components/MaterialContext";
 import { InfinitySpin } from "react-loader-spinner";
+import * as XLSX from "xlsx";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 const COLORS = [
   "#FF6B6B",
@@ -66,7 +69,7 @@ const BalanceReport = () => {
 
   const generateReport = async () => {
     if (!counterId || !selectedMaterialId) {
-      alert("Please select both counter and material.");
+      toast.warning("Please select both counter and material.");
       return;
     }
 
@@ -76,7 +79,7 @@ const BalanceReport = () => {
 
       if (rangeType === "single") {
         if (!singleDate) {
-          alert("Please select a date.");
+          toast.warning("Please select a date.");
           setLoading(false);
           return;
         }
@@ -90,7 +93,7 @@ const BalanceReport = () => {
         });
       } else if (rangeType === "range") {
         if (!fromDate || !toDate) {
-          alert("Please select start and end date.");
+          toast.warning("Please select start and end date.");
           setLoading(false);
           return;
         }
@@ -120,16 +123,52 @@ const BalanceReport = () => {
 
       setReportData(response.data);
       localStorage.setItem("balanceReport", JSON.stringify(response.data));
+      toast.success("Report generated successfully!");
     } catch (error) {
       console.error("Error generating report:", error);
-      alert("Failed to generate report.");
+      toast.error("Failed to generate report.");
     } finally {
       setLoading(false);
     }
   };
 
   const exportReport = () => {
-    alert("Export functionality not implemented yet.");
+    if (!reportData || reportData.length === 0) {
+      toast.warning("No report data to export.");
+      return;
+    }
+
+    try {
+      const sheetData = [];
+      const purityKeys = Object.keys(reportData[0].purityWeights || {});
+      const headerRow = ["Type", ...purityKeys, "Total"];
+      sheetData.push(headerRow);
+
+      reportData.forEach((row) => {
+        const rowData = [
+          row.type,
+          ...purityKeys.map(
+            (key) => row.purityWeights[key]?.toFixed(3) || "0.000"
+          ),
+          row.total.toFixed(3),
+        ];
+        sheetData.push(rowData);
+      });
+
+      const worksheet = XLSX.utils.aoa_to_sheet(sheetData);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Balance Report");
+
+      const filename = `BalanceReport_${new Date()
+        .toISOString()
+        .slice(0, 10)}.xlsx`;
+      XLSX.writeFile(workbook, filename);
+
+      toast.success("Excel file downloaded successfully!");
+    } catch (error) {
+      console.error("Export failed:", error);
+      toast.error("Failed to export report.");
+    }
   };
 
   const closeReport = () => {
@@ -158,13 +197,7 @@ const BalanceReport = () => {
     if (loading) {
       return (
         <div style={{ textAlign: "center", margin: "30px 0" }}>
-          {/* <Circles height={80} width={80} color="#4D96FF" /> */}
-          <InfinitySpin
-            height={150}
-            width={150}
-            color="#ef9f1fff"
-            ariaLabel="tail-spin-loading"
-          />
+          <InfinitySpin height={150} width={150} color="#ef9f1fff" />
           <p style={{ marginTop: "10px", color: "#666" }}>Loading Report...</p>
         </div>
       );
@@ -281,7 +314,7 @@ const BalanceReport = () => {
               >
                 <option value="range">Date Range</option>
                 <option value="single">Single Date</option>
-                <option value="all-time">All Time</option>
+                {/* <option value="all-time">All Time</option> */}
               </select>
             </div>
 
@@ -423,11 +456,12 @@ const BalanceReport = () => {
           </div>
         )}
 
-        {/* ✅ Always render this so spinner can show independently */}
         <div id="balanceReportContent" className="report-content">
           {renderTable()}
         </div>
       </div>
+
+      <ToastContainer position="top-right" autoClose={3000} hideProgressBar />
     </div>
   );
 };
