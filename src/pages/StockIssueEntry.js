@@ -4,6 +4,12 @@ import "../assets/styles/forms.css";
 import "../assets/styles/dashboard.css";
 import { Save, X } from "lucide-react";
 import { useMaterial } from "../components/MaterialContext"; // ✅ Correct custom hook
+import { DatePicker } from "@mui/x-date-pickers/DatePicker";
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
+import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
+import TextField from "@mui/material/TextField";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 const StockIssueEntry = () => {
   const [counters, setCounters] = useState([]);
@@ -62,13 +68,13 @@ const StockIssueEntry = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!counterId || !entryDate || !billNo || !selectedMaterialId) {
-      alert("Please fill all required fields.");
+      toast.error("Please fill all required fields.");
       return;
     }
 
     const hasEntries = Object.values(entries).some((value) => value > 0);
     if (!hasEntries) {
-      alert("Please enter at least one purity weight.");
+      toast.error("Please enter at least one purity weight.");
       return;
     }
 
@@ -84,13 +90,13 @@ const StockIssueEntry = () => {
       await axios.post("http://localhost:8080/api/issued-stock/add", payload, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      alert("Stock entry saved successfully!");
+      toast.success("Stock entry saved successfully!");
       setEntries({});
       setBillNo("");
       setEntryDate(new Date().toISOString().split("T")[0]);
     } catch (error) {
       console.error("Error submitting stock entry:", error);
-      alert("An error occurred while submitting the stock entry.");
+      toast.error("An error occurred while submitting the stock entry.");
     }
   };
 
@@ -129,15 +135,28 @@ const StockIssueEntry = () => {
             </div>
             <div className="form-group">
               <label htmlFor="entryDate">Date</label>
-              <input
-                type="date"
-                id="entryDate"
-                className="form-input"
-                required
-                value={entryDate}
-                onChange={(e) => setEntryDate(e.target.value)}
-              />
+              <LocalizationProvider dateAdapter={AdapterDateFns}>
+                <DatePicker
+                  disableFuture
+                  value={entryDate ? new Date(entryDate) : null}
+                  onChange={(newValue) => {
+                    if (newValue) {
+                      setEntryDate(newValue.toISOString().split("T")[0]); // save in yyyy-mm-dd
+                    }
+                  }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      required
+                      size="small"
+                      id="entryDate"
+                      sx={{ minWidth: "200px" }}
+                    />
+                  )}
+                />
+              </LocalizationProvider>
             </div>
+
             <div className="form-group">
               <label htmlFor="billNo">Bill No</label>
               <input
@@ -197,6 +216,16 @@ const StockIssueEntry = () => {
           </div>
         </form>
       </div>
+
+      <ToastContainer
+        position="top-right"
+        autoClose={3000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick
+        pauseOnHover
+        draggable
+      />
     </div>
   );
 };

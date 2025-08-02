@@ -10,6 +10,9 @@ import * as XLSX from "xlsx";
 import { FileDown, FileSpreadsheet, Pencil } from "lucide-react";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import { LocalizationProvider, DatePicker } from "@mui/x-date-pickers";
+import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
+import { TextField } from "@mui/material";
 
 const IssuedStockEntries = ({ counter, onBack }) => {
   const [entries, setEntries] = useState([]);
@@ -267,58 +270,88 @@ const IssuedStockEntries = ({ counter, onBack }) => {
       </div>
 
       {/* Date Filters */}
-      <div className="form-row" style={{ marginBottom: "1.5rem" }}>
-        <div className="form-group">
-          <label htmlFor="rangeType">Date Filter</label>
-          <select
-            id="rangeType"
-            className="form-select"
-            value={rangeType}
-            onChange={(e) => setRangeType(e.target.value)}
-          >
-            <option value="range">Date Range</option>
-            <option value="single">Single Date</option>
-          </select>
-        </div>
-
-        {rangeType === "range" && (
-          <>
-            <div className="form-group">
-              <label htmlFor="fromDate">From Date</label>
-              <input
-                id="fromDate"
-                type="date"
-                className="form-input"
-                value={fromDate}
-                onChange={(e) => setFromDate(e.target.value)}
-              />
-            </div>
-            <div className="form-group">
-              <label htmlFor="toDate">To Date</label>
-              <input
-                id="toDate"
-                type="date"
-                className="form-input"
-                value={toDate}
-                onChange={(e) => setToDate(e.target.value)}
-              />
-            </div>
-          </>
-        )}
-
-        {rangeType === "single" && (
+      <LocalizationProvider dateAdapter={AdapterDateFns}>
+        <div
+          className="form-row"
+          style={{
+            marginBottom: "1.5rem",
+            display: "flex",
+            flexWrap: "wrap",
+            gap: "1rem",
+            alignItems: "flex-end",
+          }}
+        >
           <div className="form-group">
-            <label htmlFor="selectedDate">Date</label>
-            <input
-              id="selectedDate"
-              type="date"
-              className="form-input"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-            />
+            <label htmlFor="rangeType">Date Filter</label>
+            <select
+              id="rangeType"
+              className="form-select"
+              value={rangeType}
+              onChange={(e) => setRangeType(e.target.value)}
+            >
+              <option value="range">Date Range</option>
+              <option value="single">Single Date</option>
+            </select>
           </div>
-        )}
-      </div>
+
+          {rangeType === "range" && (
+            <>
+              <div className="form-group">
+                <label>From Date</label>
+                <DatePicker
+                  value={fromDate ? new Date(fromDate) : null}
+                  onChange={(date) =>
+                    setFromDate(date ? date.toISOString().split("T")[0] : "")
+                  }
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      size="small"
+                      style={{ minWidth: "150px" }}
+                    />
+                  )}
+                />
+              </div>
+
+              <div className="form-group">
+                <label>To Date</label>
+                <DatePicker
+                  value={toDate ? new Date(toDate) : null}
+                  onChange={(date) =>
+                    setToDate(date ? date.toISOString().split("T")[0] : "")
+                  }
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      size="small"
+                      style={{ minWidth: "150px" }}
+                    />
+                  )}
+                />
+              </div>
+            </>
+          )}
+
+          {rangeType === "single" && (
+            <div className="form-group">
+              <label>Date</label>
+              <DatePicker
+                value={selectedDate ? new Date(selectedDate) : null}
+                onChange={(date) =>
+                  setSelectedDate(date ? date.toISOString().split("T")[0] : "")
+                }
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    size="small"
+                    style={{ minWidth: "150px" }}
+                  />
+                )}
+              />
+            </div>
+          )}
+        </div>
+      </LocalizationProvider>
 
       {/* Table */}
       {entries.length === 0 ? (

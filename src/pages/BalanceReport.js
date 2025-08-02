@@ -20,6 +20,10 @@ import { InfinitySpin } from "react-loader-spinner";
 import * as XLSX from "xlsx";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import { DatePicker } from "@mui/x-date-pickers/DatePicker";
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
+import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
+import TextField from "@mui/material/TextField";
 
 const COLORS = [
   "#FF6B6B",
@@ -375,45 +379,81 @@ const BalanceReport = () => {
               </select>
             </div>
 
-            {(rangeType === "range" || rangeType === "all-time") && (
-              <div className="date-inputs">
-                <div className="form-group">
-                  <label htmlFor="reportFromDate">Start Date</label>
-                  <input
-                    type="date"
-                    id="reportFromDate"
-                    className="form-input"
-                    value={fromDate}
-                    onChange={(e) => setFromDate(e.target.value)}
-                  />
-                </div>
-                <div className="form-group">
-                  <label htmlFor="reportToDate">End Date</label>
-                  <input
-                    type="date"
-                    id="reportToDate"
-                    className="form-input"
-                    value={toDate}
-                    onChange={(e) => setToDate(e.target.value)}
-                  />
-                </div>
-              </div>
-            )}
+            <LocalizationProvider dateAdapter={AdapterDateFns}>
+              {(rangeType === "range" || rangeType === "all-time") && (
+                <div className="date-inputs">
+                  <div className="form-group">
+                    <label htmlFor="reportFromDate">Start Date</label>
+                    <DatePicker
+                      disableFuture
+                      value={fromDate ? new Date(fromDate) : null}
+                      onChange={(newValue) => {
+                        if (newValue)
+                          setFromDate(newValue.toISOString().split("T")[0]);
+                      }}
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          required
+                          size="small"
+                          id="reportFromDate"
+                          className="form-input"
+                          sx={{ minWidth: "200px" }}
+                        />
+                      )}
+                    />
+                  </div>
 
-            {rangeType === "single" && (
-              <div className="date-inputs">
-                <div className="form-group">
-                  <label htmlFor="reportSingleDate">Select Date</label>
-                  <input
-                    type="date"
-                    id="reportSingleDate"
-                    className="form-input"
-                    value={singleDate}
-                    onChange={(e) => setSingleDate(e.target.value)}
-                  />
+                  <div className="form-group">
+                    <label htmlFor="reportToDate">End Date</label>
+                    <DatePicker
+                      disableFuture
+                      value={toDate ? new Date(toDate) : null}
+                      onChange={(newValue) => {
+                        if (newValue)
+                          setToDate(newValue.toISOString().split("T")[0]);
+                      }}
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          required
+                          size="small"
+                          id="reportToDate"
+                          className="form-input"
+                          sx={{ minWidth: "200px" }}
+                        />
+                      )}
+                    />
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+
+              {rangeType === "single" && (
+                <div className="date-inputs">
+                  <div className="form-group">
+                    <label htmlFor="reportSingleDate">Select Date</label>
+                    <DatePicker
+                      disableFuture
+                      value={singleDate ? new Date(singleDate) : null}
+                      onChange={(newValue) => {
+                        if (newValue)
+                          setSingleDate(newValue.toISOString().split("T")[0]);
+                      }}
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          required
+                          size="small"
+                          id="reportSingleDate"
+                          className="form-input"
+                          sx={{ minWidth: "200px" }}
+                        />
+                      )}
+                    />
+                  </div>
+                </div>
+              )}
+            </LocalizationProvider>
 
             <div className="report-actions">
               <button

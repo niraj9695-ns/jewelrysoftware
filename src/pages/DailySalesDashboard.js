@@ -5,6 +5,10 @@ import { useMaterial } from "../components/MaterialContext";
 import "../assets/styles/dashboard.css";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import { DatePicker } from "@mui/x-date-pickers/DatePicker";
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
+import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
+import { format } from "date-fns";
 
 const DailySalesDashboard = ({ switchView }) => {
   const { selectedMaterialId } = useMaterial();
@@ -167,13 +171,28 @@ const DailySalesDashboard = ({ switchView }) => {
 
         <div className="header-actions-section">
           <div className="date-selector">
-            <input
-              type="date"
-              id="dailySalesDateInput"
-              className="form-input"
-              value={currentDate}
-              onChange={(e) => setCurrentDate(e.target.value)}
-            />
+            <LocalizationProvider dateAdapter={AdapterDateFns}>
+              <DatePicker
+                disableFuture
+                label={null}
+                value={new Date(currentDate)}
+                onChange={(newValue) => {
+                  if (newValue) {
+                    setCurrentDate(format(newValue, "yyyy-MM-dd")); // keep YYYY-MM-DD format
+                  }
+                }}
+                slotProps={{
+                  textField: {
+                    size: "small",
+                    className: "form-input", // ⬅️ Keeps your styling intact
+                    variant: "outlined",
+                    InputProps: {
+                      style: { height: "40px" }, // optional: adjusts height to match input
+                    },
+                  },
+                }}
+              />
+            </LocalizationProvider>
           </div>
           <button
             id="resetDailySales"
