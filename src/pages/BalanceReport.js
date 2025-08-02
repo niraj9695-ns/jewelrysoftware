@@ -29,7 +29,6 @@ const COLORS = [
   "#9D4EDD",
   "#FF9F1C",
 ];
-
 const BalanceReport = () => {
   const [counters, setCounters] = useState([]);
   const [counterId, setCounterId] = useState("");
@@ -47,9 +46,24 @@ const BalanceReport = () => {
     if (selectedMaterialId) {
       fetchCounters();
     }
-    const saved = localStorage.getItem("balanceReport");
-    if (saved) {
-      setReportData(JSON.parse(saved));
+
+    // Retrieve saved report data
+    const savedData = localStorage.getItem("balanceReport");
+    const savedRangeType = localStorage.getItem("balanceReportRangeType");
+    const savedCounterId = localStorage.getItem("balanceReportCounterId");
+
+    try {
+      if (savedData) {
+        const parsed = JSON.parse(savedData);
+        if (parsed && (Array.isArray(parsed) || typeof parsed === "object")) {
+          setReportData(parsed);
+          if (savedRangeType) setRangeType(savedRangeType);
+          if (savedCounterId) setCounterId(savedCounterId);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to parse saved report data:", err);
+      localStorage.removeItem("balanceReport");
     }
   }, [selectedMaterialId]);
 
@@ -107,6 +121,11 @@ const BalanceReport = () => {
           headers: { Authorization: `Bearer ${token}` },
         });
       } else {
+        if (!fromDate || !toDate) {
+          toast.warning("Please select start and end date.");
+          setLoading(false);
+          return;
+        }
         response = await axios.get(
           `http://localhost:8080/api/report/monthly-summary`,
           {
@@ -121,8 +140,13 @@ const BalanceReport = () => {
         );
       }
 
-      setReportData(response.data);
-      localStorage.setItem("balanceReport", JSON.stringify(response.data));
+      const data = response.data;
+      setReportData(data);
+
+      localStorage.setItem("balanceReport", JSON.stringify(data));
+      localStorage.setItem("balanceReportRangeType", rangeType);
+      localStorage.setItem("balanceReportCounterId", counterId);
+
       toast.success("Report generated successfully!");
     } catch (error) {
       console.error("Error generating report:", error);
@@ -133,37 +157,46 @@ const BalanceReport = () => {
   };
 
   const exportReport = () => {
-    if (!reportData || reportData.length === 0) {
+    if (!reportData || Object.keys(reportData).length === 0) {
       toast.warning("No report data to export.");
       return;
     }
 
     try {
-      const sheetData = [];
-      const purityKeys = Object.keys(reportData[0].purityWeights || {});
-      const headerRow = ["Type", ...purityKeys, "Total"];
-      sheetData.push(headerRow);
-
-      reportData.forEach((row) => {
-        const rowData = [
-          row.type,
-          ...purityKeys.map(
-            (key) => row.purityWeights[key]?.toFixed(3) || "0.000"
-          ),
-          row.total.toFixed(3),
-        ];
-        sheetData.push(rowData);
-      });
-
-      const worksheet = XLSX.utils.aoa_to_sheet(sheetData);
       const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, "Balance Report");
+
+      const createSheet = (data, title) => {
+        const purityKeys = Object.keys(data[0]?.purityWeights || {});
+        const sheetData = [
+          ["Type", ...purityKeys, "Total"],
+          ...data.map((row) => [
+            row.type,
+            ...purityKeys.map(
+              (key) => row.purityWeights[key]?.toFixed(3) || "0.000"
+            ),
+            row.total?.toFixed(3) || "0.000",
+          ]),
+        ];
+        const worksheet = XLSX.utils.aoa_to_sheet(sheetData);
+        XLSX.utils.book_append_sheet(workbook, worksheet, title);
+      };
+
+      if (rangeType === "all-time") {
+        Object.entries(reportData).forEach(([month, data]) => {
+          if (Array.isArray(data) && data.length > 0) {
+            createSheet(data, month);
+          }
+        });
+      } else {
+        if (Array.isArray(reportData) && reportData.length > 0) {
+          createSheet(reportData, "Balance Report");
+        }
+      }
 
       const filename = `BalanceReport_${new Date()
         .toISOString()
         .slice(0, 10)}.xlsx`;
       XLSX.writeFile(workbook, filename);
-
       toast.success("Excel file downloaded successfully!");
     } catch (error) {
       console.error("Export failed:", error);
@@ -174,13 +207,25 @@ const BalanceReport = () => {
   const closeReport = () => {
     setReportData(null);
     localStorage.removeItem("balanceReport");
+    localStorage.removeItem("balanceReportRangeType");
+    localStorage.removeItem("balanceReportCounterId");
   };
-
   const getPurityChartData = () => {
-    if (!reportData || reportData.length === 0) return [];
+    if (!reportData || Object.keys(reportData).length === 0) return [];
+
+    const isMonthly = rangeType === "all-time";
+    let allRows = [];
+
+    if (isMonthly) {
+      allRows = Object.values(reportData).filter(Array.isArray).flat();
+    } else if (Array.isArray(reportData)) {
+      allRows = reportData;
+    } else {
+      return [];
+    }
 
     const purityTotals = {};
-    reportData.forEach((row) => {
+    allRows.forEach((row) => {
       Object.entries(row.purityWeights || {}).forEach(([purity, value]) => {
         if (!purityTotals[purity]) purityTotals[purity] = 0;
         purityTotals[purity] += value;
@@ -203,7 +248,7 @@ const BalanceReport = () => {
       );
     }
 
-    if (!reportData || reportData.length === 0) {
+    if (!reportData || Object.keys(reportData).length === 0) {
       return (
         <div className="no-data">
           <h3>No Report Data</h3>
@@ -212,18 +257,18 @@ const BalanceReport = () => {
       );
     }
 
-    const purityKeys = Object.keys(reportData[0].purityWeights || {});
+    const isMonthly = rangeType === "all-time";
 
-    return (
-      <div className="excel-report-container">
-        <div className="report-header">
-          <h2>Balance Report</h2>
-          <div className="date-range">
-            Showing {reportData.length} entries for selected date range
+    const renderSingleTable = (data, title) => {
+      if (!Array.isArray(data)) return null; // 🚨 Early return if data is not an array
+
+      const purityKeys = Object.keys(data[0]?.purityWeights || {});
+      return (
+        <div className="excel-report-container" key={title}>
+          <div className="report-header">
+            <h2>{title}</h2>
+            <div className="date-range">Showing {data.length} entries</div>
           </div>
-        </div>
-
-        <div style={{ display: "flex", gap: "20px" }}>
           <div className="excel-table-container" style={{ flex: 1 }}>
             <table className="excel-table">
               <thead>
@@ -238,7 +283,7 @@ const BalanceReport = () => {
                 </tr>
               </thead>
               <tbody>
-                {reportData.map((row, idx) => (
+                {data.map((row, idx) => (
                   <tr
                     key={idx}
                     className={
@@ -260,7 +305,7 @@ const BalanceReport = () => {
                       </td>
                     ))}
                     <td className="total-column number-cell">
-                      {row.total.toFixed(3)}
+                      {row.total?.toFixed(3) || "0.000"}
                     </td>
                   </tr>
                 ))}
@@ -268,8 +313,20 @@ const BalanceReport = () => {
             </table>
           </div>
         </div>
-      </div>
-    );
+      );
+    };
+
+    if (isMonthly) {
+      return (
+        <div style={{ display: "flex", flexDirection: "column", gap: "40px" }}>
+          {Object.entries(reportData).map(([month, data]) =>
+            Array.isArray(data) ? renderSingleTable(data, month) : null
+          )}
+        </div>
+      );
+    }
+
+    return renderSingleTable(reportData, "Balance Report");
   };
 
   return (
@@ -314,11 +371,11 @@ const BalanceReport = () => {
               >
                 <option value="range">Date Range</option>
                 <option value="single">Single Date</option>
-                {/* <option value="all-time">All Time</option> */}
+                <option value="all-time">Monthly</option>
               </select>
             </div>
 
-            {rangeType === "range" && (
+            {(rangeType === "range" || rangeType === "all-time") && (
               <div className="date-inputs">
                 <div className="form-group">
                   <label htmlFor="reportFromDate">Start Date</label>
@@ -379,7 +436,7 @@ const BalanceReport = () => {
             </div>
           </div>
 
-          {reportData && reportData.length > 0 && (
+          {reportData && (
             <div
               style={{
                 width: "420px",
@@ -424,7 +481,7 @@ const BalanceReport = () => {
           )}
         </div>
 
-        {reportData && reportData.length > 0 && (
+        {reportData && (
           <div
             style={{
               display: "flex",
