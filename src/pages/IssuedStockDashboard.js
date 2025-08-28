@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { ArrowLeft, RotateCcw, Save } from "lucide-react";
 import axios from "axios";
 import { useMaterial } from "../components/MaterialContext";
@@ -9,6 +9,7 @@ import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import { format } from "date-fns";
+import Swal from "sweetalert2"; // 🚀 Stylish alerts
 
 const IssuedStockDashboard = ({ switchView }) => {
   const { selectedMaterialId } = useMaterial();
@@ -19,6 +20,9 @@ const IssuedStockDashboard = ({ switchView }) => {
   const [billNumbers, setBillNumbers] = useState({});
   const [counters, setCounters] = useState([]);
   const [purities, setPurities] = useState([]);
+  const billInputsRef = useRef({});
+  const stockInputsRef = useRef({});
+  const datePickerRef = useRef(null);
 
   const token = localStorage.getItem("token");
 
@@ -27,6 +31,124 @@ const IssuedStockDashboard = ({ switchView }) => {
       fetchCountersAndPurities(selectedMaterialId);
     }
   }, [selectedMaterialId]);
+
+  // 🎹 Keyboard Shortcuts
+  useEffect(() => {
+    let pressedKeys = new Set();
+
+    const handleKeyDown = (e) => {
+      pressedKeys.add(e.key.toLowerCase());
+
+      // Space → focus first Bill No input
+      if (e.code === "Space") {
+        e.preventDefault();
+        const firstCounter = counters[0];
+        if (firstCounter && billInputsRef.current[firstCounter.id]) {
+          billInputsRef.current[firstCounter.id].focus();
+        }
+      }
+
+      // Reset → R key
+      if (e.key.toLowerCase() === "r") {
+        e.preventDefault();
+        resetAllInputs();
+      }
+
+      // Save Updates → S + U
+      if (pressedKeys.has("s") && pressedKeys.has("u")) {
+        e.preventDefault();
+        saveIssuedStockData();
+      }
+
+      // Date Picker → D key
+      if (e.key.toLowerCase() === "d") {
+        e.preventDefault();
+        if (datePickerRef.current) {
+          datePickerRef.current.querySelector("input")?.focus();
+          datePickerRef.current.querySelector("input")?.click();
+        }
+      }
+
+      // Arrow navigation
+      if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) {
+        e.preventDefault();
+        moveFocus(e.key);
+      }
+    };
+
+    const handleKeyUp = (e) => {
+      pressedKeys.delete(e.key.toLowerCase());
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+    };
+  }, [counters, purities, stockData]);
+
+  const moveFocus = (direction) => {
+    const grid = getInputGrid();
+    if (!grid.length) return;
+
+    // Find active input position
+    let rowIndex = -1,
+      colIndex = -1;
+    grid.forEach((row, r) => {
+      row.forEach((input, c) => {
+        if (input === document.activeElement) {
+          rowIndex = r;
+          colIndex = c;
+        }
+      });
+    });
+    if (rowIndex === -1 || colIndex === -1) return;
+
+    let nextRow = rowIndex;
+    let nextCol = colIndex;
+
+    switch (direction) {
+      case "ArrowRight":
+        nextCol = (colIndex + 1) % grid[rowIndex].length;
+        break;
+      case "ArrowLeft":
+        nextCol =
+          (colIndex - 1 + grid[rowIndex].length) % grid[rowIndex].length;
+        break;
+      case "ArrowDown":
+        if (rowIndex + 1 < grid.length) {
+          nextRow = rowIndex + 1;
+        }
+        break;
+      case "ArrowUp":
+        if (rowIndex - 1 >= 0) {
+          nextRow = rowIndex - 1;
+        }
+        break;
+      default:
+        break;
+    }
+
+    grid[nextRow][nextCol]?.focus();
+  };
+
+  const getInputGrid = () => {
+    // Build grid: [ [billNo, purity1, purity2, ...], ... ]
+    return counters.map((counter) => {
+      const row = [];
+      if (billInputsRef.current[counter.id]) {
+        row.push(billInputsRef.current[counter.id]);
+      }
+      purities.forEach((purity) => {
+        if (stockInputsRef.current[`${counter.id}_${purity.id}`]) {
+          row.push(stockInputsRef.current[`${counter.id}_${purity.id}`]);
+        }
+      });
+      return row;
+    });
+  };
 
   const fetchCountersAndPurities = async (materialId) => {
     try {
@@ -76,8 +198,19 @@ const IssuedStockDashboard = ({ switchView }) => {
     }));
   };
 
-  const resetAllInputs = () => {
-    if (window.confirm("Are you sure you want to reset all entries?")) {
+  // 🚀 Stylish reset confirmation
+  const resetAllInputs = async () => {
+    const result = await Swal.fire({
+      title: "Are you sure?",
+      text: "All inputs will be cleared!",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#d33",
+      cancelButtonColor: "#3085d6",
+      confirmButtonText: "Yes, reset it!",
+    });
+
+    if (result.isConfirmed) {
       setStockData({});
       setBillNumbers({});
       toast.info("All inputs have been reset.");
@@ -178,25 +311,27 @@ const IssuedStockDashboard = ({ switchView }) => {
 
         <div className="header-actions-section">
           <LocalizationProvider dateAdapter={AdapterDateFns}>
-            <DatePicker
-              disableFuture
-              value={new Date(currentDate)}
-              onChange={(newValue) => {
-                if (newValue) {
-                  setCurrentDate(format(newValue, "yyyy-MM-dd")); // Keep YYYY-MM-DD format
-                }
-              }}
-              slotProps={{
-                textField: {
-                  className: "form-input", // 👈 your existing styling
-                  size: "small",
-                  variant: "outlined",
-                  InputProps: {
-                    style: { height: "40px" }, // Optional height to match original
+            <div ref={datePickerRef}>
+              <DatePicker
+                disableFuture
+                value={new Date(currentDate)}
+                onChange={(newValue) => {
+                  if (newValue) {
+                    setCurrentDate(format(newValue, "yyyy-MM-dd"));
+                  }
+                }}
+                slotProps={{
+                  textField: {
+                    className: "form-input",
+                    size: "small",
+                    variant: "outlined",
+                    InputProps: {
+                      style: { height: "40px" },
+                    },
                   },
-                },
-              }}
-            />
+                }}
+              />
+            </div>
           </LocalizationProvider>
 
           <button className="btn btn-danger" onClick={resetAllInputs}>
@@ -244,6 +379,7 @@ const IssuedStockDashboard = ({ switchView }) => {
                         onChange={(e) =>
                           updateBillNo(counter.id, e.target.value)
                         }
+                        ref={(el) => (billInputsRef.current[counter.id] = el)}
                         required
                       />
                     </td>
@@ -261,6 +397,11 @@ const IssuedStockDashboard = ({ switchView }) => {
                               purity.id,
                               e.target.value
                             )
+                          }
+                          ref={(el) =>
+                            (stockInputsRef.current[
+                              `${counter.id}_${purity.id}`
+                            ] = el)
                           }
                         />
                       </td>

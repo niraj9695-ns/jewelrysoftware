@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { ArrowLeft, RotateCcw, Save } from "lucide-react";
 import axios from "axios";
 import { useMaterial } from "../components/MaterialContext";
@@ -9,6 +9,7 @@ import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import { format } from "date-fns";
+import Swal from "sweetalert2";
 
 const DailySalesDashboard = ({ switchView }) => {
   const { selectedMaterialId } = useMaterial();
@@ -21,11 +22,85 @@ const DailySalesDashboard = ({ switchView }) => {
 
   const token = localStorage.getItem("token");
 
+  // Refs for all inputs + date picker
+  const inputRefs = useRef([]);
+  const datePickerRef = useRef(null);
+
   useEffect(() => {
     if (selectedMaterialId) {
       fetchCountersAndPurities(selectedMaterialId);
     }
   }, [selectedMaterialId]);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // 1. Space = focus first input
+      if (e.code === "Space") {
+        e.preventDefault();
+        if (inputRefs.current.length > 0) {
+          inputRefs.current[0].focus();
+        }
+      }
+
+      // 2. Arrow navigation
+      if (
+        ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.code)
+      ) {
+        e.preventDefault();
+        const activeIndex = inputRefs.current.findIndex(
+          (el) => el === document.activeElement
+        );
+        if (activeIndex === -1) return;
+
+        const cols = purities.length; // number of purity columns
+        const rows = counters.length;
+        const totalCells = rows * cols;
+
+        let newIndex = activeIndex;
+        if (e.code === "ArrowRight" && activeIndex < totalCells - 1) {
+          newIndex = activeIndex + 1;
+        } else if (e.code === "ArrowLeft" && activeIndex > 0) {
+          newIndex = activeIndex - 1;
+        } else if (e.code === "ArrowDown" && activeIndex + cols < totalCells) {
+          newIndex = activeIndex + cols;
+        } else if (e.code === "ArrowUp" && activeIndex - cols >= 0) {
+          newIndex = activeIndex - cols;
+        }
+
+        inputRefs.current[newIndex]?.focus();
+      }
+
+      // 3. Save Updates (S + U together)
+      if (
+        e.key.toLowerCase() === "u" &&
+        e.ctrlKey === false &&
+        e.shiftKey === false &&
+        e.altKey === false
+      ) {
+        if (window.lastKey === "s") {
+          e.preventDefault();
+          document.getElementById("saveDailySales")?.click();
+        }
+      }
+      window.lastKey = e.key.toLowerCase();
+
+      // 4. Reset (R key)
+      if (e.key.toLowerCase() === "r") {
+        e.preventDefault();
+        document.getElementById("resetDailySales")?.click();
+      }
+
+      // 5. Open Date Picker (D key)
+      if (e.key.toLowerCase() === "d") {
+        e.preventDefault();
+        datePickerRef.current?.querySelector("input")?.focus();
+        datePickerRef.current?.querySelector("input")?.click();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [counters, purities]);
 
   const fetchCountersAndPurities = async (materialId) => {
     try {
@@ -46,8 +121,8 @@ const DailySalesDashboard = ({ switchView }) => {
 
       setCounters(counterRes.data);
       setPurities(purityRes.data);
+      inputRefs.current = []; // reset refs
     } catch (error) {
-      console.error("Failed to load counters or purities:", error);
       toast.error("Error fetching counters or purities.");
     }
   };
@@ -69,21 +144,28 @@ const DailySalesDashboard = ({ switchView }) => {
   };
 
   const resetAllInputs = () => {
-    if (
-      window.confirm(
-        "Are you sure you want to reset all entries? This cannot be undone."
-      )
-    ) {
-      const newData = { ...salesData };
-      counters.forEach((counter) => {
-        purities.forEach((purity) => {
-          const key = getKey(counter.id, purity.id);
-          delete newData[key];
+    Swal.fire({
+      title: "Are you sure?",
+      text: "This will clear all entries and cannot be undone!",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#d33",
+      cancelButtonColor: "#3085d6",
+      confirmButtonText: "Yes, reset it!",
+    }).then((result) => {
+      if (result.isConfirmed) {
+        const newData = { ...salesData };
+        counters.forEach((counter) => {
+          purities.forEach((purity) => {
+            const key = getKey(counter.id, purity.id);
+            delete newData[key];
+          });
         });
-      });
-      setSalesData(newData);
-      toast.info("All inputs have been reset.");
-    }
+        setSalesData(newData);
+
+        Swal.fire("Reset!", "All inputs have been cleared.", "success");
+      }
+    });
   };
 
   const saveSalesData = async () => {
@@ -132,7 +214,6 @@ const DailySalesDashboard = ({ switchView }) => {
       }
       toast.success("Sales data submitted successfully!");
     } catch (error) {
-      console.error("Error submitting sales data:", error);
       toast.error("Failed to submit sales data.");
     }
   };
@@ -170,7 +251,7 @@ const DailySalesDashboard = ({ switchView }) => {
         </div>
 
         <div className="header-actions-section">
-          <div className="date-selector">
+          <div className="date-selector" ref={datePickerRef}>
             <LocalizationProvider dateAdapter={AdapterDateFns}>
               <DatePicker
                 disableFuture
@@ -184,10 +265,10 @@ const DailySalesDashboard = ({ switchView }) => {
                 slotProps={{
                   textField: {
                     size: "small",
-                    className: "form-input", // ⬅️ Keeps your styling intact
+                    className: "form-input",
                     variant: "outlined",
                     InputProps: {
-                      style: { height: "40px" }, // optional: adjusts height to match input
+                      style: { height: "40px" },
                     },
                   },
                 }}
@@ -236,27 +317,31 @@ const DailySalesDashboard = ({ switchView }) => {
               </tr>
             ) : (
               <>
-                {counters.map((counter) => (
+                {counters.map((counter, rowIndex) => (
                   <tr key={counter.id}>
                     <td>{counter.name}</td>
-                    {purities.map((purity) => (
-                      <td key={purity.id}>
-                        <input
-                          type="number"
-                          className="daily-sales-input"
-                          min="0"
-                          step="0.001"
-                          value={getSavedValue(counter.id, purity.id)}
-                          onChange={(e) =>
-                            updateSalesValue(
-                              counter.id,
-                              purity.id,
-                              e.target.value
-                            )
-                          }
-                        />
-                      </td>
-                    ))}
+                    {purities.map((purity, colIndex) => {
+                      const refIndex = rowIndex * purities.length + colIndex;
+                      return (
+                        <td key={purity.id}>
+                          <input
+                            ref={(el) => (inputRefs.current[refIndex] = el)}
+                            type="number"
+                            className="daily-sales-input"
+                            min="0"
+                            step="0.001"
+                            value={getSavedValue(counter.id, purity.id)}
+                            onChange={(e) =>
+                              updateSalesValue(
+                                counter.id,
+                                purity.id,
+                                e.target.value
+                              )
+                            }
+                          />
+                        </td>
+                      );
+                    })}
                     <td className="row-total">
                       {calculateRowTotal(counter.id).toFixed(2)}
                     </td>
