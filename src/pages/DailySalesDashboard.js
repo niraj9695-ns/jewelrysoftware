@@ -70,10 +70,10 @@ const DailySalesDashboard = ({ switchView }) => {
 
         switch (code) {
           case "ArrowLeft":
-            newCol = currentCol > 0 ? currentCol - 1 : purities.length - 1;
+            newCol = currentCol > 0 ? currentCol - 1 : 0; // stay in same row
             break;
           case "ArrowRight":
-            newCol = currentCol < purities.length - 1 ? currentCol + 1 : 0;
+            newCol = currentCol < purities.length - 1 ? currentCol + 1 : 0; // wrap in same row
             break;
           case "ArrowUp":
             if (currentRow > 0) newRow = currentRow - 1;
@@ -84,7 +84,10 @@ const DailySalesDashboard = ({ switchView }) => {
         }
 
         const nextInput = inputRefs.current[newRow]?.[newCol];
-        if (nextInput) nextInput.focus();
+        if (nextInput) {
+          nextInput.focus();
+          nextInput.select();
+        }
       }
 
       // 3. Save Updates (S + U)
@@ -110,16 +113,17 @@ const DailySalesDashboard = ({ switchView }) => {
       }
     };
 
-    // 🔑 Important fix: listen on `document` so JavaFX forwarded events are caught
-    document.addEventListener("keydown", handleKeyDown);
+    // Attach to window so JavaFX WebView passes keys
+    window.addEventListener("keydown", handleKeyDown);
 
-    // Auto-focus root so it receives events
+    // Ensure root is focusable
     if (rootRef.current) {
+      rootRef.current.setAttribute("tabindex", "0");
       rootRef.current.focus();
     }
 
     return () => {
-      document.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keydown", handleKeyDown);
     };
   }, [counters, purities]);
 
@@ -132,6 +136,7 @@ const DailySalesDashboard = ({ switchView }) => {
         ),
         axios.get(
           `http://localhost:8080/api/purities/by-material/${materialId}`,
+
           { headers: { Authorization: `Bearer ${token}` } }
         ),
       ]);
@@ -250,7 +255,7 @@ const DailySalesDashboard = ({ switchView }) => {
       id="dailySalesDashboardSection"
       className="section"
       ref={rootRef}
-      tabIndex={0} // 🔑 make it focusable
+      tabIndex={0} // focusable
     >
       <ToastContainer position="bottom-right" autoClose={3000} />
       <div className="daily-sales-header">
