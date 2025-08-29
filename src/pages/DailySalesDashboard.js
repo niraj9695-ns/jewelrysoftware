@@ -23,9 +23,9 @@ const DailySalesDashboard = ({ switchView }) => {
   const token = localStorage.getItem("token");
 
   // Refs
-  const inputRefs = useRef([]); // 2D array [row][col]
-  const dateInputRef = useRef(null);
-  const rootRef = useRef(null);
+  // 2D array: inputRefs.current[rowIndex][colIndex]
+  const inputRefs = useRef([]);
+  const datePickerRef = useRef(null);
 
   useEffect(() => {
     if (selectedMaterialId) {
@@ -33,99 +33,139 @@ const DailySalesDashboard = ({ switchView }) => {
     }
   }, [selectedMaterialId]);
 
+  // ---------- Keyboard shortcuts (browser + JavaFX WebView) ----------
   useEffect(() => {
+    const pressedKeys = new Set();
+
     const handleKeyDown = (e) => {
-      const key = e.key.toLowerCase();
-      const code = e.code;
+      const key = e.key?.toLowerCase?.();
+      pressedKeys.add(key);
 
-      // 1. Space = focus first input
-      if (code === "Space" || key === " ") {
+      // Space → focus first input
+      if (e.code === "Space" || key === " ") {
         e.preventDefault();
-        if (inputRefs.current[0]?.[0]) {
-          inputRefs.current[0][0].focus();
+        const grid = getInputGrid();
+        if (grid[0]?.[0]) {
+          grid[0][0].focus();
+          grid[0][0].select?.();
         }
       }
 
-      // 2. Arrow navigation (row × col grid)
-      if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(code)) {
-        e.preventDefault();
-
-        let currentRow = -1;
-        let currentCol = -1;
-
-        // Find current position
-        for (let r = 0; r < counters.length; r++) {
-          for (let c = 0; c < purities.length; c++) {
-            if (inputRefs.current[r]?.[c] === e.target) {
-              currentRow = r;
-              currentCol = c;
-              break;
-            }
-          }
-        }
-        if (currentRow === -1 || currentCol === -1) return;
-
-        let newRow = currentRow;
-        let newCol = currentCol;
-
-        switch (code) {
-          case "ArrowLeft":
-            newCol = currentCol > 0 ? currentCol - 1 : 0; // stay in same row
-            break;
-          case "ArrowRight":
-            newCol = currentCol < purities.length - 1 ? currentCol + 1 : 0; // wrap in same row
-            break;
-          case "ArrowUp":
-            if (currentRow > 0) newRow = currentRow - 1;
-            break;
-          case "ArrowDown":
-            if (currentRow < counters.length - 1) newRow = currentRow + 1;
-            break;
-        }
-
-        const nextInput = inputRefs.current[newRow]?.[newCol];
-        if (nextInput) {
-          nextInput.focus();
-          nextInput.select();
-        }
-      }
-
-      // 3. Save Updates (S + U)
-      if (key === "u" && window.lastKey === "s") {
-        e.preventDefault();
-        document.getElementById("saveDailySales")?.click();
-      }
-      window.lastKey = key;
-
-      // 4. Reset (R)
+      // Reset → R
       if (key === "r") {
         e.preventDefault();
-        document.getElementById("resetDailySales")?.click();
+        resetAllInputs();
       }
 
-      // 5. Open Date Picker (D)
+      // Save → S + U
+      if (pressedKeys.has("s") && pressedKeys.has("u")) {
+        e.preventDefault();
+        saveSalesData();
+      }
+
+      // Date picker → D
       if (key === "d") {
         e.preventDefault();
-        if (dateInputRef.current) {
-          dateInputRef.current.focus();
-          dateInputRef.current.click();
+        if (datePickerRef.current) {
+          const input = datePickerRef.current.querySelector("input");
+          if (input) {
+            input.focus();
+            input.click();
+          }
         }
+      }
+
+      // Arrow navigation
+      if (["arrowup", "arrowdown", "arrowleft", "arrowright"].includes(key)) {
+        e.preventDefault();
+        moveFocus(e.key);
       }
     };
 
-    // Attach to window so JavaFX WebView passes keys
-    window.addEventListener("keydown", handleKeyDown);
+    const handleKeyUp = (e) => {
+      pressedKeys.delete(e.key?.toLowerCase?.());
+    };
 
-    // Ensure root is focusable
-    if (rootRef.current) {
-      rootRef.current.setAttribute("tabindex", "0");
-      rootRef.current.focus();
-    }
+    // Capture phase = true → intercept before WebView/default input behavior
+    window.addEventListener("keydown", handleKeyDown, true);
+    window.addEventListener("keyup", handleKeyUp, true);
 
     return () => {
-      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keydown", handleKeyDown, true);
+      window.removeEventListener("keyup", handleKeyUp, true);
     };
-  }, [counters, purities]);
+  }, [counters, purities, salesData]);
+
+  // Build a grid of inputs from refs
+  const getInputGrid = () => {
+    const grid = [];
+    for (let r = 0; r < counters.length; r++) {
+      const row = [];
+      for (let c = 0; c < purities.length; c++) {
+        const el = inputRefs.current[r]?.[c];
+        if (el) row.push(el);
+      }
+      grid.push(row);
+    }
+    return grid;
+  };
+
+  const moveFocus = (direction) => {
+    const grid = getInputGrid();
+    if (!grid.length) return;
+
+    // Find focused position
+    let rowIndex = -1;
+    let colIndex = -1;
+    outer: for (let r = 0; r < grid.length; r++) {
+      for (let c = 0; c < grid[r].length; c++) {
+        if (grid[r][c] === document.activeElement) {
+          rowIndex = r;
+          colIndex = c;
+          break outer;
+        }
+      }
+    }
+    if (rowIndex === -1 || colIndex === -1) return;
+
+    let nextRow = rowIndex;
+    let nextCol = colIndex;
+
+    switch (direction.toLowerCase()) {
+      case "arrowright":
+        // wrap to first col in same row
+        nextCol = (colIndex + 1) % grid[rowIndex].length;
+        break;
+      case "arrowleft":
+        // wrap to last col in same row
+        nextCol =
+          (colIndex - 1 + grid[rowIndex].length) % grid[rowIndex].length;
+        break;
+      case "arrowdown":
+        if (rowIndex + 1 < grid.length) {
+          nextRow = rowIndex + 1;
+          // keep same column index (clamp if needed)
+          if (nextCol >= grid[nextRow].length)
+            nextCol = grid[nextRow].length - 1;
+        }
+        break;
+      case "arrowup":
+        if (rowIndex - 1 >= 0) {
+          nextRow = rowIndex - 1;
+          if (nextCol >= grid[nextRow].length)
+            nextCol = grid[nextRow].length - 1;
+        }
+        break;
+      default:
+        break;
+    }
+
+    const nextEl = grid[nextRow]?.[nextCol];
+    if (nextEl) {
+      nextEl.focus();
+      nextEl.select?.();
+    }
+  };
 
   const fetchCountersAndPurities = async (materialId) => {
     try {
@@ -136,13 +176,12 @@ const DailySalesDashboard = ({ switchView }) => {
         ),
         axios.get(
           `http://localhost:8080/api/purities/by-material/${materialId}`,
-
           { headers: { Authorization: `Bearer ${token}` } }
         ),
       ]);
       setCounters(counterRes.data);
       setPurities(purityRes.data);
-      inputRefs.current = [];
+      inputRefs.current = []; // reset grid refs
     } catch (error) {
       toast.error("Error fetching counters or purities.");
     }
@@ -251,12 +290,7 @@ const DailySalesDashboard = ({ switchView }) => {
     counters.reduce((sum, counter) => sum + calculateRowTotal(counter.id), 0);
 
   return (
-    <div
-      id="dailySalesDashboardSection"
-      className="section"
-      ref={rootRef}
-      tabIndex={0} // focusable
-    >
+    <div id="dailySalesDashboardSection" className="section">
       <ToastContainer position="bottom-right" autoClose={3000} />
       <div className="daily-sales-header">
         <div className="header-left-section">
@@ -274,25 +308,26 @@ const DailySalesDashboard = ({ switchView }) => {
 
         <div className="header-actions-section">
           <LocalizationProvider dateAdapter={AdapterDateFns}>
-            <DatePicker
-              disableFuture
-              label={null}
-              value={new Date(currentDate)}
-              onChange={(newValue) => {
-                if (newValue) {
-                  setCurrentDate(format(newValue, "yyyy-MM-dd"));
-                }
-              }}
-              slotProps={{
-                textField: {
-                  size: "small",
-                  className: "form-input",
-                  variant: "outlined",
-                  inputRef: dateInputRef,
-                  InputProps: { style: { height: "40px" } },
-                },
-              }}
-            />
+            <div ref={datePickerRef}>
+              <DatePicker
+                disableFuture
+                label={null}
+                value={new Date(currentDate)}
+                onChange={(newValue) => {
+                  if (newValue) {
+                    setCurrentDate(format(newValue, "yyyy-MM-dd"));
+                  }
+                }}
+                slotProps={{
+                  textField: {
+                    size: "small",
+                    className: "form-input",
+                    variant: "outlined",
+                    InputProps: { style: { height: "40px" } },
+                  },
+                }}
+              />
+            </div>
           </LocalizationProvider>
           <button
             id="resetDailySales"
