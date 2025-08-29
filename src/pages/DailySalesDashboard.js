@@ -53,7 +53,7 @@ const DailySalesDashboard = ({ switchView }) => {
         let currentRow = -1;
         let currentCol = -1;
 
-        // Find current position in grid
+        // Find current position
         for (let r = 0; r < counters.length; r++) {
           for (let c = 0; c < purities.length; c++) {
             if (inputRefs.current[r]?.[c] === e.target) {
@@ -70,26 +70,16 @@ const DailySalesDashboard = ({ switchView }) => {
 
         switch (code) {
           case "ArrowLeft":
-            if (currentCol > 0) {
-              newCol = currentCol - 1;
-            } else {
-              newCol = purities.length - 1; // wrap to last column of same row
-            }
+            newCol = currentCol > 0 ? currentCol - 1 : purities.length - 1;
             break;
           case "ArrowRight":
-            if (currentCol < purities.length - 1) {
-              newCol = currentCol + 1;
-            } else {
-              newCol = 0; // wrap to first column of same row
-            }
+            newCol = currentCol < purities.length - 1 ? currentCol + 1 : 0;
             break;
           case "ArrowUp":
             if (currentRow > 0) newRow = currentRow - 1;
             break;
           case "ArrowDown":
             if (currentRow < counters.length - 1) newRow = currentRow + 1;
-            break;
-          default:
             break;
         }
 
@@ -98,11 +88,9 @@ const DailySalesDashboard = ({ switchView }) => {
       }
 
       // 3. Save Updates (S + U)
-      if (key === "u") {
-        if (window.lastKey === "s") {
-          e.preventDefault();
-          document.getElementById("saveDailySales")?.click();
-        }
+      if (key === "u" && window.lastKey === "s") {
+        e.preventDefault();
+        document.getElementById("saveDailySales")?.click();
       }
       window.lastKey = key;
 
@@ -122,16 +110,16 @@ const DailySalesDashboard = ({ switchView }) => {
       }
     };
 
-    window.addEventListener("keydown", handleKeyDown);
+    // 🔑 Important fix: listen on `document` so JavaFX forwarded events are caught
+    document.addEventListener("keydown", handleKeyDown);
+
+    // Auto-focus root so it receives events
     if (rootRef.current) {
-      rootRef.current.addEventListener("keydown", handleKeyDown);
+      rootRef.current.focus();
     }
 
     return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-      if (rootRef.current) {
-        rootRef.current.removeEventListener("keydown", handleKeyDown);
-      }
+      document.removeEventListener("keydown", handleKeyDown);
     };
   }, [counters, purities]);
 
@@ -262,7 +250,7 @@ const DailySalesDashboard = ({ switchView }) => {
       id="dailySalesDashboardSection"
       className="section"
       ref={rootRef}
-      tabIndex={0}
+      tabIndex={0} // 🔑 make it focusable
     >
       <ToastContainer position="bottom-right" autoClose={3000} />
       <div className="daily-sales-header">
