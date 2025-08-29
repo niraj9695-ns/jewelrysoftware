@@ -32,15 +32,16 @@ const IssuedStockDashboard = ({ switchView }) => {
     }
   }, [selectedMaterialId]);
 
-  // 🎹 Keyboard Shortcuts
+  // 🎹 Universal Keyboard Shortcuts (Browser + JavaFX WebView)
   useEffect(() => {
     let pressedKeys = new Set();
 
     const handleKeyDown = (e) => {
-      pressedKeys.add(e.key.toLowerCase());
+      const key = e.key?.toLowerCase?.();
+      pressedKeys.add(key);
 
       // Space → focus first Bill No input
-      if (e.code === "Space") {
+      if (e.code === "Space" || key === " ") {
         e.preventDefault();
         const firstCounter = counters[0];
         if (firstCounter && billInputsRef.current[firstCounter.id]) {
@@ -49,7 +50,7 @@ const IssuedStockDashboard = ({ switchView }) => {
       }
 
       // Reset → R key
-      if (e.key.toLowerCase() === "r") {
+      if (key === "r") {
         e.preventDefault();
         resetAllInputs();
       }
@@ -61,31 +62,34 @@ const IssuedStockDashboard = ({ switchView }) => {
       }
 
       // Date Picker → D key
-      if (e.key.toLowerCase() === "d") {
+      if (key === "d") {
         e.preventDefault();
         if (datePickerRef.current) {
-          datePickerRef.current.querySelector("input")?.focus();
-          datePickerRef.current.querySelector("input")?.click();
+          const input = datePickerRef.current.querySelector("input");
+          if (input) {
+            input.focus();
+            input.click();
+          }
         }
       }
 
       // Arrow navigation
-      if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) {
+      if (["arrowup", "arrowdown", "arrowleft", "arrowright"].includes(key)) {
         e.preventDefault();
         moveFocus(e.key);
       }
     };
 
     const handleKeyUp = (e) => {
-      pressedKeys.delete(e.key.toLowerCase());
+      pressedKeys.delete(e.key?.toLowerCase?.());
     };
 
-    window.addEventListener("keydown", handleKeyDown);
-    window.addEventListener("keyup", handleKeyUp);
+    window.addEventListener("keydown", handleKeyDown, true);
+    window.addEventListener("keyup", handleKeyUp, true);
 
     return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-      window.removeEventListener("keyup", handleKeyUp);
+      window.removeEventListener("keydown", handleKeyDown, true);
+      window.removeEventListener("keyup", handleKeyUp, true);
     };
   }, [counters, purities, stockData]);
 
@@ -93,7 +97,6 @@ const IssuedStockDashboard = ({ switchView }) => {
     const grid = getInputGrid();
     if (!grid.length) return;
 
-    // Find active input position
     let rowIndex = -1,
       colIndex = -1;
     grid.forEach((row, r) => {
@@ -109,20 +112,20 @@ const IssuedStockDashboard = ({ switchView }) => {
     let nextRow = rowIndex;
     let nextCol = colIndex;
 
-    switch (direction) {
-      case "ArrowRight":
+    switch (direction.toLowerCase()) {
+      case "arrowright":
         nextCol = (colIndex + 1) % grid[rowIndex].length;
         break;
-      case "ArrowLeft":
+      case "arrowleft":
         nextCol =
           (colIndex - 1 + grid[rowIndex].length) % grid[rowIndex].length;
         break;
-      case "ArrowDown":
+      case "arrowdown":
         if (rowIndex + 1 < grid.length) {
           nextRow = rowIndex + 1;
         }
         break;
-      case "ArrowUp":
+      case "arrowup":
         if (rowIndex - 1 >= 0) {
           nextRow = rowIndex - 1;
         }
@@ -135,7 +138,6 @@ const IssuedStockDashboard = ({ switchView }) => {
   };
 
   const getInputGrid = () => {
-    // Build grid: [ [billNo, purity1, purity2, ...], ... ]
     return counters.map((counter) => {
       const row = [];
       if (billInputsRef.current[counter.id]) {
@@ -198,7 +200,6 @@ const IssuedStockDashboard = ({ switchView }) => {
     }));
   };
 
-  // 🚀 Stylish reset confirmation
   const resetAllInputs = async () => {
     const result = await Swal.fire({
       title: "Are you sure?",
@@ -285,7 +286,7 @@ const IssuedStockDashboard = ({ switchView }) => {
 
   const calculateColumnTotal = (purityId) =>
     counters.reduce((sum, counter) => {
-      const value = parseFloat(getSavedValue(counter.id, purityId));
+      const value = parseFloat(getSavedValue(counter.id, purities.id));
       return sum + (isNaN(value) ? 0 : value);
     }, 0);
 

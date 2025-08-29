@@ -22,9 +22,10 @@ const DailySalesDashboard = ({ switchView }) => {
 
   const token = localStorage.getItem("token");
 
-  // Refs for all inputs + date picker
-  const inputRefs = useRef([]);
-  const datePickerRef = useRef(null);
+  // Refs
+  const inputRefs = useRef([]); // 2D array [row][col]
+  const dateInputRef = useRef(null);
+  const rootRef = useRef(null);
 
   useEffect(() => {
     if (selectedMaterialId) {
@@ -34,72 +35,104 @@ const DailySalesDashboard = ({ switchView }) => {
 
   useEffect(() => {
     const handleKeyDown = (e) => {
+      const key = e.key.toLowerCase();
+      const code = e.code;
+
       // 1. Space = focus first input
-      if (e.code === "Space") {
+      if (code === "Space" || key === " ") {
         e.preventDefault();
-        if (inputRefs.current.length > 0) {
-          inputRefs.current[0].focus();
+        if (inputRefs.current[0]?.[0]) {
+          inputRefs.current[0][0].focus();
         }
       }
 
-      // 2. Arrow navigation
-      if (
-        ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.code)
-      ) {
+      // 2. Arrow navigation (row × col grid)
+      if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(code)) {
         e.preventDefault();
-        const activeIndex = inputRefs.current.findIndex(
-          (el) => el === document.activeElement
-        );
-        if (activeIndex === -1) return;
 
-        const cols = purities.length; // number of purity columns
-        const rows = counters.length;
-        const totalCells = rows * cols;
+        let currentRow = -1;
+        let currentCol = -1;
 
-        let newIndex = activeIndex;
-        if (e.code === "ArrowRight" && activeIndex < totalCells - 1) {
-          newIndex = activeIndex + 1;
-        } else if (e.code === "ArrowLeft" && activeIndex > 0) {
-          newIndex = activeIndex - 1;
-        } else if (e.code === "ArrowDown" && activeIndex + cols < totalCells) {
-          newIndex = activeIndex + cols;
-        } else if (e.code === "ArrowUp" && activeIndex - cols >= 0) {
-          newIndex = activeIndex - cols;
+        // Find current position in grid
+        for (let r = 0; r < counters.length; r++) {
+          for (let c = 0; c < purities.length; c++) {
+            if (inputRefs.current[r]?.[c] === e.target) {
+              currentRow = r;
+              currentCol = c;
+              break;
+            }
+          }
+        }
+        if (currentRow === -1 || currentCol === -1) return;
+
+        let newRow = currentRow;
+        let newCol = currentCol;
+
+        switch (code) {
+          case "ArrowLeft":
+            if (currentCol > 0) {
+              newCol = currentCol - 1;
+            } else {
+              newCol = purities.length - 1; // wrap to last column of same row
+            }
+            break;
+          case "ArrowRight":
+            if (currentCol < purities.length - 1) {
+              newCol = currentCol + 1;
+            } else {
+              newCol = 0; // wrap to first column of same row
+            }
+            break;
+          case "ArrowUp":
+            if (currentRow > 0) newRow = currentRow - 1;
+            break;
+          case "ArrowDown":
+            if (currentRow < counters.length - 1) newRow = currentRow + 1;
+            break;
+          default:
+            break;
         }
 
-        inputRefs.current[newIndex]?.focus();
+        const nextInput = inputRefs.current[newRow]?.[newCol];
+        if (nextInput) nextInput.focus();
       }
 
-      // 3. Save Updates (S + U together)
-      if (
-        e.key.toLowerCase() === "u" &&
-        e.ctrlKey === false &&
-        e.shiftKey === false &&
-        e.altKey === false
-      ) {
+      // 3. Save Updates (S + U)
+      if (key === "u") {
         if (window.lastKey === "s") {
           e.preventDefault();
           document.getElementById("saveDailySales")?.click();
         }
       }
-      window.lastKey = e.key.toLowerCase();
+      window.lastKey = key;
 
-      // 4. Reset (R key)
-      if (e.key.toLowerCase() === "r") {
+      // 4. Reset (R)
+      if (key === "r") {
         e.preventDefault();
         document.getElementById("resetDailySales")?.click();
       }
 
-      // 5. Open Date Picker (D key)
-      if (e.key.toLowerCase() === "d") {
+      // 5. Open Date Picker (D)
+      if (key === "d") {
         e.preventDefault();
-        datePickerRef.current?.querySelector("input")?.focus();
-        datePickerRef.current?.querySelector("input")?.click();
+        if (dateInputRef.current) {
+          dateInputRef.current.focus();
+          dateInputRef.current.click();
+        }
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    if (rootRef.current) {
+      rootRef.current.addEventListener("keydown", handleKeyDown);
+    }
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      if (rootRef.current) {
+        rootRef.current.removeEventListener("keydown", handleKeyDown);
+      }
+    };
   }, [counters, purities]);
 
   const fetchCountersAndPurities = async (materialId) => {
@@ -107,21 +140,16 @@ const DailySalesDashboard = ({ switchView }) => {
       const [counterRes, purityRes] = await Promise.all([
         axios.get(
           `http://localhost:8080/api/counters/by-material/${materialId}`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
+          { headers: { Authorization: `Bearer ${token}` } }
         ),
         axios.get(
           `http://localhost:8080/api/purities/by-material/${materialId}`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
+          { headers: { Authorization: `Bearer ${token}` } }
         ),
       ]);
-
       setCounters(counterRes.data);
       setPurities(purityRes.data);
-      inputRefs.current = []; // reset refs
+      inputRefs.current = [];
     } catch (error) {
       toast.error("Error fetching counters or purities.");
     }
@@ -162,7 +190,6 @@ const DailySalesDashboard = ({ switchView }) => {
           });
         });
         setSalesData(newData);
-
         Swal.fire("Reset!", "All inputs have been cleared.", "success");
       }
     });
@@ -178,16 +205,13 @@ const DailySalesDashboard = ({ switchView }) => {
 
     counters.forEach((counter) => {
       const salesDataMap = {};
-
       purities.forEach((purity) => {
         const key = getKey(counter.id, purity.id);
         const value = parseFloat(salesData[key]);
-
         if (!isNaN(value) && value > 0) {
           salesDataMap[purity.name] = value;
         }
       });
-
       if (Object.keys(salesDataMap).length > 0) {
         salesPayloads.push({
           materialId: selectedMaterialId,
@@ -234,7 +258,12 @@ const DailySalesDashboard = ({ switchView }) => {
     counters.reduce((sum, counter) => sum + calculateRowTotal(counter.id), 0);
 
   return (
-    <div id="dailySalesDashboardSection" className="section">
+    <div
+      id="dailySalesDashboardSection"
+      className="section"
+      ref={rootRef}
+      tabIndex={0}
+    >
       <ToastContainer position="bottom-right" autoClose={3000} />
       <div className="daily-sales-header">
         <div className="header-left-section">
@@ -251,30 +280,27 @@ const DailySalesDashboard = ({ switchView }) => {
         </div>
 
         <div className="header-actions-section">
-          <div className="date-selector" ref={datePickerRef}>
-            <LocalizationProvider dateAdapter={AdapterDateFns}>
-              <DatePicker
-                disableFuture
-                label={null}
-                value={new Date(currentDate)}
-                onChange={(newValue) => {
-                  if (newValue) {
-                    setCurrentDate(format(newValue, "yyyy-MM-dd")); // keep YYYY-MM-DD format
-                  }
-                }}
-                slotProps={{
-                  textField: {
-                    size: "small",
-                    className: "form-input",
-                    variant: "outlined",
-                    InputProps: {
-                      style: { height: "40px" },
-                    },
-                  },
-                }}
-              />
-            </LocalizationProvider>
-          </div>
+          <LocalizationProvider dateAdapter={AdapterDateFns}>
+            <DatePicker
+              disableFuture
+              label={null}
+              value={new Date(currentDate)}
+              onChange={(newValue) => {
+                if (newValue) {
+                  setCurrentDate(format(newValue, "yyyy-MM-dd"));
+                }
+              }}
+              slotProps={{
+                textField: {
+                  size: "small",
+                  className: "form-input",
+                  variant: "outlined",
+                  inputRef: dateInputRef,
+                  InputProps: { style: { height: "40px" } },
+                },
+              }}
+            />
+          </LocalizationProvider>
           <button
             id="resetDailySales"
             className="btn btn-danger"
@@ -320,28 +346,30 @@ const DailySalesDashboard = ({ switchView }) => {
                 {counters.map((counter, rowIndex) => (
                   <tr key={counter.id}>
                     <td>{counter.name}</td>
-                    {purities.map((purity, colIndex) => {
-                      const refIndex = rowIndex * purities.length + colIndex;
-                      return (
-                        <td key={purity.id}>
-                          <input
-                            ref={(el) => (inputRefs.current[refIndex] = el)}
-                            type="number"
-                            className="daily-sales-input"
-                            min="0"
-                            step="0.001"
-                            value={getSavedValue(counter.id, purity.id)}
-                            onChange={(e) =>
-                              updateSalesValue(
-                                counter.id,
-                                purity.id,
-                                e.target.value
-                              )
+                    {purities.map((purity, colIndex) => (
+                      <td key={purity.id}>
+                        <input
+                          ref={(el) => {
+                            if (!inputRefs.current[rowIndex]) {
+                              inputRefs.current[rowIndex] = [];
                             }
-                          />
-                        </td>
-                      );
-                    })}
+                            inputRefs.current[rowIndex][colIndex] = el;
+                          }}
+                          type="number"
+                          className="daily-sales-input"
+                          min="0"
+                          step="0.001"
+                          value={getSavedValue(counter.id, purity.id)}
+                          onChange={(e) =>
+                            updateSalesValue(
+                              counter.id,
+                              purity.id,
+                              e.target.value
+                            )
+                          }
+                        />
+                      </td>
+                    ))}
                     <td className="row-total">
                       {calculateRowTotal(counter.id).toFixed(2)}
                     </td>
