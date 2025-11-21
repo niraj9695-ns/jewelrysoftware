@@ -60,6 +60,7 @@ const DailySalesDashboard = ({ switchView }) => {
       // Save → S + U
       if (pressedKeys.has("s") && pressedKeys.has("u")) {
         e.preventDefault();
+        // call the same save function (it will validate)
         saveSalesData();
       }
 
@@ -94,7 +95,7 @@ const DailySalesDashboard = ({ switchView }) => {
       window.removeEventListener("keydown", handleKeyDown, true);
       window.removeEventListener("keyup", handleKeyUp, true);
     };
-  }, [counters, purities, salesData]);
+  }, [counters, purities, salesData, currentDate]);
 
   // Build a grid of inputs from refs
   const getInputGrid = () => {
@@ -179,8 +180,8 @@ const DailySalesDashboard = ({ switchView }) => {
           { headers: { Authorization: `Bearer ${token}` } }
         ),
       ]);
-      setCounters(counterRes.data);
-      setPurities(purityRes.data);
+      setCounters(counterRes.data || []);
+      setPurities(purityRes.data || []);
       inputRefs.current = []; // reset grid refs
     } catch (error) {
       toast.error("Error fetching counters or purities.");
@@ -192,7 +193,7 @@ const DailySalesDashboard = ({ switchView }) => {
 
   const getSavedValue = (counterId, purityId) => {
     const key = getKey(counterId, purityId);
-    return salesData[key] || "";
+    return salesData[key] ?? "";
   };
 
   const updateSalesValue = (counterId, purityId, value) => {
@@ -222,9 +223,33 @@ const DailySalesDashboard = ({ switchView }) => {
           });
         });
         setSalesData(newData);
+        // focus first input if present
+        const firstInput = inputRefs.current?.[0]?.[0];
+        if (firstInput) {
+          firstInput.focus();
+          firstInput.select?.();
+        }
         Swal.fire("Reset!", "All inputs have been cleared.", "success");
       }
     });
+  };
+
+  // Remove keys in salesData that belong to currentDate
+  const clearCurrentDateEntries = () => {
+    setSalesData((prev) => {
+      const next = { ...prev };
+      const prefix = `${currentDate}_`;
+      Object.keys(prev).forEach((k) => {
+        if (k.startsWith(prefix)) delete next[k];
+      });
+      return next;
+    });
+    // reset refs grid focus to first cell if exists
+    const firstInput = inputRefs.current?.[0]?.[0];
+    if (firstInput) {
+      firstInput.focus();
+      firstInput.select?.();
+    }
   };
 
   const saveSalesData = async () => {
@@ -239,7 +264,8 @@ const DailySalesDashboard = ({ switchView }) => {
       const salesDataMap = {};
       purities.forEach((purity) => {
         const key = getKey(counter.id, purity.id);
-        const value = parseFloat(salesData[key]);
+        const raw = salesData[key];
+        const value = parseFloat(raw);
         if (!isNaN(value) && value > 0) {
           salesDataMap[purity.name] = value;
         }
@@ -260,6 +286,16 @@ const DailySalesDashboard = ({ switchView }) => {
     }
 
     try {
+      // Use Swal to show a quick "saving" loader (optional)
+      Swal.fire({
+        title: "Submitting...",
+        text: "Please wait while the sales data is saved.",
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading();
+        },
+      });
+
       for (const payload of salesPayloads) {
         await axios.post("http://localhost:8080/api/daily-sales/add", payload, {
           headers: {
@@ -268,8 +304,14 @@ const DailySalesDashboard = ({ switchView }) => {
           },
         });
       }
+
+      Swal.close();
       toast.success("Sales data submitted successfully!");
+
+      // Clear only the entries for the current date (reset the form for that date)
+      clearCurrentDateEntries();
     } catch (error) {
+      Swal.close();
       toast.error("Failed to submit sales data.");
     }
   };

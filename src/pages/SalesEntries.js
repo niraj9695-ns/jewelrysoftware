@@ -1,4 +1,4 @@
-// SalesEntries.js
+// SalesEntries.js (UPDATED: smart number formatting - keeps .00 but shows full precision when >2 decimals)
 
 import React, { useEffect, useState, useRef } from "react";
 import axios from "axios";
@@ -8,7 +8,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 
-import { FileDown, FileSpreadsheet, Pencil } from "lucide-react";
+import { FileDown, FileSpreadsheet, Pencil, Trash2 } from "lucide-react";
 
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -35,6 +35,47 @@ const SalesEntries = ({ counter, onBack }) => {
 
   const formatDate = (dateObj) =>
     dateObj ? format(dateObj, "yyyy-MM-dd") : "";
+
+  // ---------- Helper: display formatting ----------
+  const formatNumberDisplay = (value) => {
+    // handle null/undefined
+    if (value === null || value === undefined) return "0.00";
+
+    // if it's a string (maybe from input), try to parse
+    let num = typeof value === "string" ? Number(value) : value;
+    if (isNaN(num)) return value; // fallback, show raw value
+
+    // Use string representation to check decimals that user provided
+    // We prefer to use a stable string representation:
+    const asString = String(num);
+
+    // If asString has scientific notation, convert via toPrecision then trim trailing zeros
+    // But in typical ranges this won't be necessary.
+
+    if (!asString.includes(".")) {
+      // integer -> show 2 decimals
+      return num.toFixed(2);
+    }
+
+    const parts = asString.split(".");
+    const decimals = parts[1] || "";
+
+    if (decimals.length <= 2) {
+      // show exactly two decimals (preserve .00 or .10 etc)
+      return num.toFixed(2);
+    }
+
+    // decimals length > 2 -> show full precision (but trim trailing zeros if any)
+    // Using Number(...) then toString() removes any unnecessary trailing zeros produced by float arithmetic
+    // but preserves the input precision if present.
+    const trimmed = Number(num).toString();
+
+    // In some cases Number(num).toString() may convert 1.1000 -> "1.1" but user wanted 1.10?
+    // However your requirement is: keep .00 but if 1.1234 entered then full value must be displayed.
+    // So this behavior is acceptable: 1.1000 -> shows "1.1" (but if you want "1.10" for 1.10 we already handled decimals.length <=2 case).
+    return trimmed;
+  };
+  // -------------------------------------------------
 
   const fetchPurities = async () => {
     if (!counter?.material?.id) return;
@@ -123,13 +164,19 @@ const SalesEntries = ({ counter, onBack }) => {
     if (counter && purities.length > 0) {
       fetchSales();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [counter, purities, rangeType, fromDate, toDate, selectedDate]);
 
   const handleEditClick = (entry) => {
     setEditingRow(entry.date);
     const values = {};
     purities.forEach((p) => {
-      values[p.name] = entry[p.name]?.toFixed(2) || "0.00";
+      // preload input with full precision if available, but keep as string
+      const raw =
+        entry[p.name] === undefined || entry[p.name] === null
+          ? 0
+          : entry[p.name];
+      values[p.name] = formatNumberDisplay(raw);
     });
     setEditedValues(values);
   };
@@ -138,6 +185,7 @@ const SalesEntries = ({ counter, onBack }) => {
     try {
       const salesData = {};
       purities.forEach((p) => {
+        // parse the string to float (will handle 1.1234 etc)
         salesData[p.name] = parseFloat(editedValues[p.name]) || 0;
       });
 
@@ -164,6 +212,32 @@ const SalesEntries = ({ counter, onBack }) => {
     }
   };
 
+  // ---------- Delete handler ----------
+  const handleDelete = async (entry) => {
+    try {
+      const confirmed = window.confirm(
+        `Delete all sales entries for date ${entry.date}? This will remove all purity rows for that date.`
+      );
+      if (!confirmed) return;
+
+      await axios.delete("http://localhost:8080/api/daily-sales/delete", {
+        headers: { Authorization: `Bearer ${token}` },
+        params: {
+          materialId: counter.material.id,
+          counterId: counter.id,
+          date: entry.date, // backend expects ISO date (yyyy-MM-dd)
+        },
+      });
+
+      toast.success("Sales entries deleted successfully");
+      fetchSales();
+    } catch (error) {
+      console.error("Error deleting sales entries:", error);
+      toast.error("Failed to delete sales entries");
+    }
+  };
+  // -----------------------------------------
+
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (editingRef.current && !editingRef.current.contains(event.target)) {
@@ -188,16 +262,16 @@ const SalesEntries = ({ counter, onBack }) => {
     entries.forEach((entry) => {
       const row = [
         entry.date,
-        ...purities.map((p) => (entry[p.name] || 0).toFixed(2)),
-        entry.total.toFixed(2),
+        ...purities.map((p) => formatNumberDisplay(entry[p.name] || 0)),
+        formatNumberDisplay(entry.total || 0),
       ];
       tableRows.push(row);
     });
 
     const totalsRow = [
       "Total",
-      ...purities.map((p) => (columnTotals[p.name] || 0).toFixed(2)),
-      (columnTotals.total || 0).toFixed(2),
+      ...purities.map((p) => formatNumberDisplay(columnTotals[p.name] || 0)),
+      formatNumberDisplay(columnTotals.total || 0),
     ];
     tableRows.push(totalsRow);
 
@@ -216,13 +290,13 @@ const SalesEntries = ({ counter, onBack }) => {
       ["Date", ...purities.map((p) => p.name), "Total"],
       ...entries.map((entry) => [
         entry.date,
-        ...purities.map((p) => (entry[p.name] || 0).toFixed(2)),
-        entry.total.toFixed(2),
+        ...purities.map((p) => formatNumberDisplay(entry[p.name] || 0)),
+        formatNumberDisplay(entry.total || 0),
       ]),
       [
         "Total",
-        ...purities.map((p) => (columnTotals[p.name] || 0).toFixed(2)),
-        (columnTotals.total || 0).toFixed(2),
+        ...purities.map((p) => formatNumberDisplay(columnTotals[p.name] || 0)),
+        formatNumberDisplay(columnTotals.total || 0),
       ],
     ];
 
@@ -326,7 +400,9 @@ const SalesEntries = ({ counter, onBack }) => {
                   <th key={p.id}>{p.name}</th>
                 ))}
                 <th>Total</th>
-                <th>Edit</th>
+                <th style={{ textAlign: "center", minWidth: "120px" }}>
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -336,12 +412,13 @@ const SalesEntries = ({ counter, onBack }) => {
                   ref={editingRow === entry.date ? editingRef : null}
                 >
                   <td>{entry.date}</td>
+
                   {purities.map((p) => (
                     <td key={p.id}>
                       {editingRow === entry.date ? (
                         <input
                           type="number"
-                          step="0.01"
+                          step="0.0001"
                           value={editedValues[p.name] || ""}
                           onChange={(e) =>
                             setEditedValues({
@@ -354,19 +431,27 @@ const SalesEntries = ({ counter, onBack }) => {
                             borderRadius: "5px",
                             padding: "4px",
                             border: "1px solid #ccc",
-                            width: "70px",
+                            width: "90px",
                             textAlign: "right",
                           }}
                         />
                       ) : (
-                        (entry[p.name] || 0).toFixed(2)
+                        // display using smart formatter
+                        formatNumberDisplay(entry[p.name] || 0)
                       )}
                     </td>
                   ))}
+
                   <td style={{ fontWeight: "bold" }}>
-                    {entry.total.toFixed(2)}
+                    {formatNumberDisplay(entry.total || 0)}
                   </td>
-                  <td>
+
+                  <td
+                    style={{
+                      textAlign: "center",
+                      minWidth: "140px",
+                    }}
+                  >
                     {editingRow === entry.date ? (
                       <button
                         className="btn btn-success"
@@ -375,12 +460,30 @@ const SalesEntries = ({ counter, onBack }) => {
                         Save
                       </button>
                     ) : (
-                      <button
-                        className="btn btn-warning"
-                        onClick={() => handleEditClick(entry)}
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "center",
+                          alignItems: "center",
+                          gap: "0.5rem",
+                        }}
                       >
-                        <Pencil size={16} />
-                      </button>
+                        <button
+                          className="btn btn-warning"
+                          onClick={() => handleEditClick(entry)}
+                          title="Edit row"
+                        >
+                          <Pencil size={16} />
+                        </button>
+
+                        <button
+                          className="btn btn-danger"
+                          onClick={() => handleDelete(entry)}
+                          title="Delete all entries for this date"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
                     )}
                   </td>
                 </tr>
@@ -390,9 +493,11 @@ const SalesEntries = ({ counter, onBack }) => {
               <tr style={{ fontWeight: "bold", backgroundColor: "#f9f9f9" }}>
                 <td>Total</td>
                 {purities.map((p) => (
-                  <td key={p.id}>{(columnTotals[p.name] || 0).toFixed(2)}</td>
+                  <td key={p.id}>
+                    {formatNumberDisplay(columnTotals[p.name] || 0)}
+                  </td>
                 ))}
-                <td>{(columnTotals.total || 0).toFixed(2)}</td>
+                <td>{formatNumberDisplay(columnTotals.total || 0)}</td>
                 <td></td>
               </tr>
             </tfoot>

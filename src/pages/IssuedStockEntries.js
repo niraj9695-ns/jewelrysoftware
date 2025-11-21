@@ -1,13 +1,11 @@
-// 🟢 Updated IssuedStockEntries.jsx
-
-// Keep all imports as-is
+// IssuedStockEntries.jsx
 import React, { useEffect, useState, useRef } from "react";
 import axios from "axios";
 import "../assets/styles/forms.css";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
-import { FileDown, FileSpreadsheet, Pencil } from "lucide-react";
+import { FileDown, FileSpreadsheet, Pencil, Trash2 } from "lucide-react";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { LocalizationProvider, DatePicker } from "@mui/x-date-pickers";
@@ -29,14 +27,59 @@ const IssuedStockEntries = ({ counter, onBack }) => {
 
   const token = localStorage.getItem("token");
 
+  // ---------------- Formatting helpers ----------------
+  // If number is effectively equal to its 2-decimal rounding -> show exactly 2 decimals (keeps .00).
+  // Otherwise (has >2 meaningful decimals) -> display up to 4 decimals, trimming trailing zeros.
+  const trimTrailingZerosMax4 = (s) => {
+    // s is expected from toFixed(4), e.g. "10.1230" or "10.0000"
+    // If all decimals are zeros, we still want ".0000" for totals, but for entries earlier we prefer ".00" handled separately.
+    // For trimming we remove trailing zeros, but keep at least 1 decimal if needed.
+    // Example: "10.1200" -> "10.12", "10.1000" -> "10.1", "10.0000" -> "10"
+    const trimmed = s.replace(/(\.\d*?[1-9])0+$/u, "$1").replace(/\.0+$/u, "");
+    return trimmed;
+  };
+
+  const formatEntryDisplay = (value) => {
+    // value can be number or string
+    if (value === null || value === undefined) return "0.00";
+
+    const num = typeof value === "string" ? Number(value) : value;
+    if (isNaN(num)) return String(value);
+
+    // get rounded 2 decimals
+    const rounded2 = Number(num.toFixed(2));
+    // treat tiny floating noise as equal
+    if (Math.abs(num - rounded2) < 1e-8) {
+      return rounded2.toFixed(2); // keep .00 look
+    }
+
+    // show up to 4 decimals, no FP artifacts
+    const s = Number(num).toFixed(4); // "40.67200000" -> "40.6720"
+    // Trim trailing zeros but keep at least one decimal place if needed
+    const trimmed = trimTrailingZerosMax4(s);
+    return trimmed;
+  };
+
+  const formatTotalDisplay = (value) => {
+    // totals must show 4 decimals always
+    if (value === null || value === undefined) return "0.0000";
+    const num = typeof value === "string" ? Number(value) : value;
+    if (isNaN(num)) return String(value);
+    // round to 4 decimals (avoid long FP artifacts)
+    return Number(num.toFixed(4)).toFixed(4);
+  };
+  // ----------------------------------------------------
+
   useEffect(() => {
     fetchPurities();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     if (counter && purities.length) {
       fetchStockEntries();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [counter, purities, rangeType, fromDate, toDate, selectedDate]);
 
   const fetchPurities = async () => {
@@ -45,13 +88,12 @@ const IssuedStockEntries = ({ counter, onBack }) => {
     try {
       const res = await axios.get(
         `http://localhost:8080/api/purities/by-material/${counter.material.id}`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
+        { headers: { Authorization: `Bearer ${token}` } }
       );
       setPurities(res.data);
     } catch (err) {
       console.error("Error fetching purities:", err);
+      toast.error("Error fetching purities");
     }
   };
 
@@ -60,7 +102,6 @@ const IssuedStockEntries = ({ counter, onBack }) => {
 
     try {
       let url = "";
-
       if (rangeType === "range" && fromDate && toDate) {
         url = `http://localhost:8080/api/issued-stock/by-material-counter-daterange?materialId=${counter.material.id}&counterId=${counter.id}&startDate=${fromDate}&endDate=${toDate}`;
       } else if (rangeType === "single" && selectedDate) {
@@ -75,6 +116,7 @@ const IssuedStockEntries = ({ counter, onBack }) => {
 
       const data = Array.isArray(res.data) ? res.data : [];
 
+      // Group rows by date__billNo
       const grouped = {};
 
       data.forEach((entry) => {
@@ -100,6 +142,7 @@ const IssuedStockEntries = ({ counter, onBack }) => {
 
       const result = Object.values(grouped);
 
+      // calculate totals (numeric)
       const totals = { total: 0 };
       purities.forEach((p) => (totals[p.name] = 0));
       result.forEach((entry) => {
@@ -113,17 +156,28 @@ const IssuedStockEntries = ({ counter, onBack }) => {
       setColumnTotals(totals);
     } catch (error) {
       console.error("Error fetching issued stock entries:", error);
+      toast.error("Error fetching issued stock entries");
     }
   };
 
   const handleEditClick = (entry) => {
-    setEditingRow(`${entry.date}__${entry.billNo}`);
+    const key = `${entry.date}__${entry.billNo}`;
+    setEditingRow(key);
+
     const values = {
-      billNo: entry.billNo || "",
+      billNo: entry.billNo === "-" ? "" : entry.billNo || "",
     };
+
     purities.forEach((p) => {
-      values[p.name] = entry[p.name]?.toFixed(2) || "0.00";
+      const raw =
+        entry[p.name] === undefined || entry[p.name] === null
+          ? 0
+          : entry[p.name];
+      // preload input string with user-friendly representation:
+      // If entry had <=2 decimals, show 2 decimals (e.g., "10.00"), else show up to 4 trimmed decimals (e.g., "10.1234")
+      values[p.name] = formatEntryDisplay(raw);
     });
+
     setEditedValues(values);
   };
 
@@ -131,14 +185,16 @@ const IssuedStockEntries = ({ counter, onBack }) => {
     try {
       const issuedData = {};
       purities.forEach((p) => {
-        issuedData[p.name] = parseFloat(editedValues[p.name]) || 0;
+        // parse float from input string; if invalid parseFloat -> NaN -> fallback to 0
+        const v = parseFloat(editedValues[p.name]);
+        issuedData[p.name] = Number.isFinite(v) ? v : 0;
       });
 
       const payload = {
         date: entry.date,
         counterId: counter.id,
         materialId: counter.material.id,
-        billNo: editedValues.billNo, // 🟢 Updated bill number
+        billNo: editedValues.billNo,
         issuedData,
       };
 
@@ -159,6 +215,35 @@ const IssuedStockEntries = ({ counter, onBack }) => {
     } catch (error) {
       console.error("Error updating stock entry:", error);
       toast.error("Failed to update stock entry.");
+    }
+  };
+
+  const handleDelete = async (entry) => {
+    try {
+      const confirmed = window.confirm(
+        `Delete issued stock for date ${entry.date} and bill no "${entry.billNo}"? This will remove all related purity entries for that row.`
+      );
+      if (!confirmed) return;
+
+      const params = {
+        materialId: counter.material.id,
+        counterId: counter.id,
+        date: entry.date,
+      };
+      if (entry.billNo && entry.billNo !== "-") {
+        params.billNo = entry.billNo;
+      }
+
+      await axios.delete("http://localhost:8080/api/issued-stock/delete", {
+        headers: { Authorization: `Bearer ${token}` },
+        params,
+      });
+
+      toast.success("Stock entry deleted successfully!");
+      fetchStockEntries();
+    } catch (error) {
+      console.error("Error deleting stock entry:", error);
+      toast.error("Failed to delete stock entry.");
     }
   };
 
@@ -191,9 +276,9 @@ const IssuedStockEntries = ({ counter, onBack }) => {
     entries.forEach((entry) => {
       const row = [
         entry.date,
-        entry.billNo,
-        ...purities.map((p) => (entry[p.name] || 0).toFixed(2)),
-        entry.total.toFixed(2),
+        entry.billNo === "-" ? "" : entry.billNo,
+        ...purities.map((p) => formatEntryDisplay(entry[p.name] || 0)),
+        formatTotalDisplay(entry.total || 0),
       ];
       tableRows.push(row);
     });
@@ -201,8 +286,8 @@ const IssuedStockEntries = ({ counter, onBack }) => {
     const totalsRow = [
       "Total",
       "",
-      ...purities.map((p) => (columnTotals[p.name] || 0).toFixed(2)),
-      (columnTotals.total || 0).toFixed(2),
+      ...purities.map((p) => formatEntryDisplay(columnTotals[p.name] || 0)),
+      formatTotalDisplay(columnTotals.total || 0),
     ];
     tableRows.push(totalsRow);
 
@@ -220,15 +305,15 @@ const IssuedStockEntries = ({ counter, onBack }) => {
       ["Date", "Bill No", ...purities.map((p) => p.name), "Total"],
       ...entries.map((entry) => [
         entry.date,
-        entry.billNo,
-        ...purities.map((p) => (entry[p.name] || 0).toFixed(2)),
-        entry.total.toFixed(2),
+        entry.billNo === "-" ? "" : entry.billNo,
+        ...purities.map((p) => formatEntryDisplay(entry[p.name] || 0)),
+        formatTotalDisplay(entry.total || 0),
       ]),
       [
         "Total",
         "",
-        ...purities.map((p) => (columnTotals[p.name] || 0).toFixed(2)),
-        (columnTotals.total || 0).toFixed(2),
+        ...purities.map((p) => formatEntryDisplay(columnTotals[p.name] || 0)),
+        formatTotalDisplay(columnTotals.total || 0),
       ],
     ];
 
@@ -366,7 +451,9 @@ const IssuedStockEntries = ({ counter, onBack }) => {
                 <th key={p.id}>{p.name}</th>
               ))}
               <th>Total</th>
-              <th>Edit</th>
+              <th style={{ textAlign: "center", minWidth: "120px" }}>
+                Actions
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -393,16 +480,19 @@ const IssuedStockEntries = ({ counter, onBack }) => {
                           borderRadius: "5px",
                         }}
                       />
+                    ) : entry.billNo === "-" ? (
+                      ""
                     ) : (
                       entry.billNo
                     )}
                   </td>
+
                   {purities.map((p) => (
                     <td key={p.id}>
                       {editingRow === key ? (
                         <input
                           type="number"
-                          step="0.01"
+                          step="0.0001"
                           value={editedValues[p.name] || ""}
                           onChange={(e) =>
                             setEditedValues({
@@ -411,7 +501,7 @@ const IssuedStockEntries = ({ counter, onBack }) => {
                             })
                           }
                           style={{
-                            width: "70px",
+                            width: "90px",
                             padding: "4px",
                             border: "1px solid #ccc",
                             borderRadius: "5px",
@@ -419,14 +509,21 @@ const IssuedStockEntries = ({ counter, onBack }) => {
                           }}
                         />
                       ) : (
-                        (entry[p.name] || 0).toFixed(2)
+                        formatEntryDisplay(entry[p.name] || 0)
                       )}
                     </td>
                   ))}
+
                   <td style={{ fontWeight: "bold" }}>
-                    {entry.total.toFixed(2)}
+                    {formatTotalDisplay(entry.total || 0)}
                   </td>
-                  <td>
+
+                  <td
+                    style={{
+                      textAlign: "center",
+                      minWidth: "140px",
+                    }}
+                  >
                     {editingRow === key ? (
                       <button
                         className="btn btn-success"
@@ -435,12 +532,30 @@ const IssuedStockEntries = ({ counter, onBack }) => {
                         Save
                       </button>
                     ) : (
-                      <button
-                        className="btn btn-warning"
-                        onClick={() => handleEditClick(entry)}
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "center",
+                          alignItems: "center",
+                          gap: "0.5rem",
+                        }}
                       >
-                        <Pencil size={16} />
-                      </button>
+                        <button
+                          className="btn btn-warning"
+                          onClick={() => handleEditClick(entry)}
+                          title="Edit row"
+                        >
+                          <Pencil size={16} />
+                        </button>
+
+                        <button
+                          className="btn btn-danger"
+                          onClick={() => handleDelete(entry)}
+                          title="Delete row"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
                     )}
                   </td>
                 </tr>
@@ -451,9 +566,11 @@ const IssuedStockEntries = ({ counter, onBack }) => {
             <tr style={{ fontWeight: "bold", backgroundColor: "#f0f0f0" }}>
               <td colSpan={2}>Total</td>
               {purities.map((p) => (
-                <td key={p.id}>{(columnTotals[p.name] || 0).toFixed(2)}</td>
+                <td key={p.id}>
+                  {formatEntryDisplay(columnTotals[p.name] || 0)}
+                </td>
               ))}
-              <td>{(columnTotals.total || 0).toFixed(2)}</td>
+              <td>{formatTotalDisplay(columnTotals.total || 0)}</td>
               <td></td>
             </tr>
           </tfoot>
