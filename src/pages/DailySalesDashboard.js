@@ -16,24 +16,59 @@ const DailySalesDashboard = ({ switchView }) => {
   const [currentDate, setCurrentDate] = useState(
     () => new Date().toISOString().split("T")[0]
   );
+
+  // Local cell values: "yyyy-MM-dd_counterId_purityId" -> string
   const [salesData, setSalesData] = useState({});
+
   const [counters, setCounters] = useState([]);
   const [purities, setPurities] = useState([]);
 
+  // existingEntriesByKey: "counterId_purityId" -> [entries]
+  const [existingEntriesByKey, setExistingEntriesByKey] = useState({});
+
   const token = localStorage.getItem("token");
 
-  // Refs
-  // 2D array: inputRefs.current[rowIndex][colIndex]
   const inputRefs = useRef([]);
   const datePickerRef = useRef(null);
 
+  // Fetch counters & purities when material selected
   useEffect(() => {
     if (selectedMaterialId) {
       fetchCountersAndPurities(selectedMaterialId);
+    } else {
+      setCounters([]);
+      setPurities([]);
     }
   }, [selectedMaterialId]);
 
-  // ---------- Keyboard shortcuts (browser + JavaFX WebView) ----------
+  // When material/date changes, fetch existing sales
+  useEffect(() => {
+    if (selectedMaterialId && currentDate) {
+      fetchExistingSales(selectedMaterialId, currentDate);
+    } else {
+      setExistingEntriesByKey({});
+    }
+  }, [selectedMaterialId, currentDate]);
+
+  // If purities load after entries, populate the local salesData from server entries
+  useEffect(() => {
+    if (purities.length > 0 && Object.keys(existingEntriesByKey).length > 0) {
+      setSalesData((prev) => {
+        const next = { ...prev };
+        Object.entries(existingEntriesByKey).forEach(([key, arr]) => {
+          const [counterId, purityId] = key.split("_");
+          const fullKey = `${currentDate}_${counterId}_${purityId}`;
+          if (arr[0] && typeof arr[0].soldWeight !== "undefined") {
+            next[fullKey] = String(arr[0].soldWeight);
+          }
+        });
+        return next;
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [purities, existingEntriesByKey]);
+
+  // Keyboard shortcuts & arrow navigation
   useEffect(() => {
     const pressedKeys = new Set();
 
@@ -41,7 +76,6 @@ const DailySalesDashboard = ({ switchView }) => {
       const key = e.key?.toLowerCase?.();
       pressedKeys.add(key);
 
-      // Space → focus first input
       if (e.code === "Space" || key === " ") {
         e.preventDefault();
         const grid = getInputGrid();
@@ -50,21 +84,14 @@ const DailySalesDashboard = ({ switchView }) => {
           grid[0][0].select?.();
         }
       }
-
-      // Reset → R
       if (key === "r") {
         e.preventDefault();
         resetAllInputs();
       }
-
-      // Save → S + U
       if (pressedKeys.has("s") && pressedKeys.has("u")) {
         e.preventDefault();
-        // call the same save function (it will validate)
         saveSalesData();
       }
-
-      // Date picker → D
       if (key === "d") {
         e.preventDefault();
         if (datePickerRef.current) {
@@ -75,8 +102,6 @@ const DailySalesDashboard = ({ switchView }) => {
           }
         }
       }
-
-      // Arrow navigation
       if (["arrowup", "arrowdown", "arrowleft", "arrowright"].includes(key)) {
         e.preventDefault();
         moveFocus(e.key);
@@ -87,7 +112,6 @@ const DailySalesDashboard = ({ switchView }) => {
       pressedKeys.delete(e.key?.toLowerCase?.());
     };
 
-    // Capture phase = true → intercept before WebView/default input behavior
     window.addEventListener("keydown", handleKeyDown, true);
     window.addEventListener("keyup", handleKeyUp, true);
 
@@ -95,9 +119,8 @@ const DailySalesDashboard = ({ switchView }) => {
       window.removeEventListener("keydown", handleKeyDown, true);
       window.removeEventListener("keyup", handleKeyUp, true);
     };
-  }, [counters, purities, salesData, currentDate]);
+  }, [counters, purities, salesData, currentDate, existingEntriesByKey]);
 
-  // Build a grid of inputs from refs
   const getInputGrid = () => {
     const grid = [];
     for (let r = 0; r < counters.length; r++) {
@@ -115,7 +138,6 @@ const DailySalesDashboard = ({ switchView }) => {
     const grid = getInputGrid();
     if (!grid.length) return;
 
-    // Find focused position
     let rowIndex = -1;
     let colIndex = -1;
     outer: for (let r = 0; r < grid.length; r++) {
@@ -134,18 +156,15 @@ const DailySalesDashboard = ({ switchView }) => {
 
     switch (direction.toLowerCase()) {
       case "arrowright":
-        // wrap to first col in same row
         nextCol = (colIndex + 1) % grid[rowIndex].length;
         break;
       case "arrowleft":
-        // wrap to last col in same row
         nextCol =
           (colIndex - 1 + grid[rowIndex].length) % grid[rowIndex].length;
         break;
       case "arrowdown":
         if (rowIndex + 1 < grid.length) {
           nextRow = rowIndex + 1;
-          // keep same column index (clamp if needed)
           if (nextCol >= grid[nextRow].length)
             nextCol = grid[nextRow].length - 1;
         }
@@ -168,6 +187,8 @@ const DailySalesDashboard = ({ switchView }) => {
     }
   };
 
+  // --- API calls ---
+
   const fetchCountersAndPurities = async (materialId) => {
     try {
       const [counterRes, purityRes] = await Promise.all([
@@ -182,12 +203,56 @@ const DailySalesDashboard = ({ switchView }) => {
       ]);
       setCounters(counterRes.data || []);
       setPurities(purityRes.data || []);
-      inputRefs.current = []; // reset grid refs
+      inputRefs.current = [];
     } catch (error) {
       toast.error("Error fetching counters or purities.");
     }
   };
 
+  // Convert server array response (flat per-purity entries) into map keyed by counter_purity
+  const fetchExistingSales = async (materialId, dateStr) => {
+    try {
+      const res = await axios.get(
+        `http://localhost:8080/api/daily-sales/by-material-date`,
+        {
+          params: { materialId, date: dateStr },
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      const entries = Array.isArray(res.data) ? res.data : [];
+
+      const byKey = {};
+      entries.forEach((entry) => {
+        const counterId = entry.counter?.id ?? (entry.counterId || null);
+        const purityId = entry.purity?.id ?? (entry.purityId || null);
+        if (counterId == null || purityId == null) return;
+        const key = `${counterId}_${purityId}`;
+        byKey[key] = byKey[key] || [];
+        byKey[key].push(entry);
+      });
+
+      setExistingEntriesByKey(byKey);
+
+      // populate local salesData with server soldWeight values (if purities known)
+      setSalesData((prev) => {
+        const next = { ...prev };
+        Object.entries(byKey).forEach(([key, arr]) => {
+          const [counterId, purityId] = key.split("_");
+          const fullKey = `${dateStr}_${counterId}_${purityId}`;
+          if (arr[0] && typeof arr[0].soldWeight !== "undefined") {
+            next[fullKey] = String(arr[0].soldWeight);
+          }
+        });
+        return next;
+      });
+    } catch (error) {
+      // empty or error -> clear maps
+      setExistingEntriesByKey({});
+    }
+  };
+
+  // Helpers to manage local state keys
   const getKey = (counterId, purityId) =>
     `${currentDate}_${counterId}_${purityId}`;
 
@@ -215,15 +280,15 @@ const DailySalesDashboard = ({ switchView }) => {
       confirmButtonText: "Yes, reset it!",
     }).then((result) => {
       if (result.isConfirmed) {
-        const newData = { ...salesData };
-        counters.forEach((counter) => {
-          purities.forEach((purity) => {
-            const key = getKey(counter.id, purity.id);
-            delete newData[key];
+        setSalesData((prev) => {
+          const next = { ...prev };
+          const prefix = `${currentDate}_`;
+          Object.keys(prev).forEach((k) => {
+            if (k.startsWith(prefix)) delete next[k];
           });
+          return next;
         });
-        setSalesData(newData);
-        // focus first input if present
+        setExistingEntriesByKey({});
         const firstInput = inputRefs.current?.[0]?.[0];
         if (firstInput) {
           firstInput.focus();
@@ -234,7 +299,6 @@ const DailySalesDashboard = ({ switchView }) => {
     });
   };
 
-  // Remove keys in salesData that belong to currentDate
   const clearCurrentDateEntries = () => {
     setSalesData((prev) => {
       const next = { ...prev };
@@ -244,7 +308,6 @@ const DailySalesDashboard = ({ switchView }) => {
       });
       return next;
     });
-    // reset refs grid focus to first cell if exists
     const firstInput = inputRefs.current?.[0]?.[0];
     if (firstInput) {
       firstInput.focus();
@@ -252,52 +315,131 @@ const DailySalesDashboard = ({ switchView }) => {
     }
   };
 
+  // Save logic: build per-counter salesData map { purityName: value } and call update or create endpoints.
   const saveSalesData = async () => {
+    console.log("=== SAVE START ===");
+    console.log("currentDate:", currentDate);
+    console.log(
+      "existingEntriesByKey:",
+      JSON.parse(JSON.stringify(existingEntriesByKey))
+    );
+    console.log("counters:", counters);
+    console.log("purities:", purities);
+
     if (!selectedMaterialId) {
       toast.warn("Please select a material before saving.");
       return;
     }
 
-    const salesPayloads = [];
+    // 1) detect duplicates per counter_purity
+    const duplicateKeys = Object.entries(existingEntriesByKey)
+      .filter(([, arr]) => arr.length > 1)
+      .map(([key, arr]) => ({ key, entries: arr }));
+
+    if (duplicateKeys.length > 0) {
+      const messages = duplicateKeys
+        .map((d) => {
+          const [counterId, purityId] = d.key.split("_");
+          const counterName =
+            d.entries[0]?.counter?.name ?? `Counter ${counterId}`;
+          const purityName = d.entries[0]?.purity?.name ?? purityId;
+          return `${counterName} / ${purityName} — ${d.entries.length} records`;
+        })
+        .join("\n");
+
+      await Swal.fire({
+        icon: "error",
+        title: "Duplicate entries detected",
+        html:
+          `<p>The server has multiple entries for the same counter + purity on this date.</p>` +
+          `<pre style="text-align:left; white-space:pre-wrap;">${messages}</pre>` +
+          `<p>Please remove duplicates in the backend or via admin tools before saving.</p>`,
+      });
+      return;
+    }
+
+    // 2) Build payloads per counter
+    const toCreate = []; // POST /add payloads (per counter)
+    const toUpdate = []; // PUT /update payloads (per counter)
 
     counters.forEach((counter) => {
+      // Build salesData map for this counter using purity.name keys
       const salesDataMap = {};
       purities.forEach((purity) => {
-        const key = getKey(counter.id, purity.id);
-        const raw = salesData[key];
+        const localKey = getKey(counter.id, purity.id);
+        const raw = salesData[localKey];
         const value = parseFloat(raw);
         if (!isNaN(value) && value > 0) {
+          // use purity.name as key (server expects purity name -> value map)
           salesDataMap[purity.name] = value;
         }
       });
+
       if (Object.keys(salesDataMap).length > 0) {
-        salesPayloads.push({
-          materialId: selectedMaterialId,
-          counterId: counter.id,
-          date: currentDate,
-          salesData: salesDataMap,
+        // NEW: Determine if server already has any entry for THIS counter (by checking existingEntriesByKey for keys that start with `${counter.id}_`)
+        const counterHasServerEntry = purities.some((p) => {
+          const smallKey = `${counter.id}_${p.id}`;
+          return (
+            Array.isArray(existingEntriesByKey[smallKey]) &&
+            existingEntriesByKey[smallKey].length > 0
+          );
         });
+
+        if (counterHasServerEntry) {
+          toUpdate.push({
+            materialId: selectedMaterialId,
+            counterId: counter.id,
+            date: currentDate,
+            salesData: salesDataMap,
+          });
+        } else {
+          toCreate.push({
+            materialId: selectedMaterialId,
+            counterId: counter.id,
+            date: currentDate,
+            salesData: salesDataMap,
+          });
+        }
       }
     });
 
-    if (salesPayloads.length === 0) {
+    if (toCreate.length === 0 && toUpdate.length === 0) {
       toast.warn("Please enter at least one value before saving.");
       return;
     }
 
     try {
-      // Use Swal to show a quick "saving" loader (optional)
+      if (toUpdate.length > 0) {
+        const proceed = await Swal.fire({
+          title: "Update existing counters?",
+          text: `We will update ${toUpdate.length} counter(s) which already have entries for this date. Proceed?`,
+          icon: "question",
+          showCancelButton: true,
+          confirmButtonText: "Yes, update",
+        });
+        if (!proceed.isConfirmed) return;
+      }
+
       Swal.fire({
         title: "Submitting...",
         text: "Please wait while the sales data is saved.",
         allowOutsideClick: false,
-        didOpen: () => {
-          Swal.showLoading();
-        },
+        didOpen: () => Swal.showLoading(),
       });
 
-      for (const payload of salesPayloads) {
-        await axios.post("http://localhost:8080/api/daily-sales/add", payload, {
+      // Perform updates: PUT /api/daily-sales/update with body { materialId, counterId, date, salesData }
+      for (const up of toUpdate) {
+        await axios.put("http://localhost:8080/api/daily-sales/update", up, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+      }
+
+      // Perform creates: POST /api/daily-sales/add with same body shape
+      for (const p of toCreate) {
+        await axios.post("http://localhost:8080/api/daily-sales/add", p, {
           headers: {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
@@ -308,14 +450,27 @@ const DailySalesDashboard = ({ switchView }) => {
       Swal.close();
       toast.success("Sales data submitted successfully!");
 
-      // Clear only the entries for the current date (reset the form for that date)
+      // Refresh server-side entries for this date to reflect saved state
+      await fetchExistingSales(selectedMaterialId, currentDate);
+
+      // Clear only the entries for the current date locally
       clearCurrentDateEntries();
     } catch (error) {
       Swal.close();
-      toast.error("Failed to submit sales data.");
+      console.error("Save failed:", error);
+      if (error.response && error.response.data) {
+        const serverMsg =
+          typeof error.response.data === "string"
+            ? error.response.data
+            : JSON.stringify(error.response.data);
+        toast.error("Server error: " + serverMsg);
+      } else {
+        toast.error("Failed to submit sales data.");
+      }
     }
   };
 
+  // Totals
   const calculateRowTotal = (counterId) =>
     purities.reduce((sum, purity) => {
       const value = parseFloat(getSavedValue(counterId, purity.id));
@@ -415,31 +570,55 @@ const DailySalesDashboard = ({ switchView }) => {
               <>
                 {counters.map((counter, rowIndex) => (
                   <tr key={counter.id}>
-                    <td>{counter.name}</td>
-                    {purities.map((purity, colIndex) => (
-                      <td key={purity.id}>
-                        <input
-                          ref={(el) => {
-                            if (!inputRefs.current[rowIndex]) {
-                              inputRefs.current[rowIndex] = [];
+                    <td>
+                      {counter.name}
+                      {purities.some((p) => {
+                        const smallKey = `${counter.id}_${p.id}`;
+                        return (
+                          Array.isArray(existingEntriesByKey[smallKey]) &&
+                          existingEntriesByKey[smallKey].length > 0
+                        );
+                      }) ? (
+                        <div style={{ fontSize: 12, color: "#b93b3b" }}>
+                          Existing entry found — saving will update it
+                        </div>
+                      ) : null}
+                    </td>
+
+                    {purities.map((purity, colIndex) => {
+                      const smallKey = `${counter.id}_${purity.id}`;
+                      const duplicateCount =
+                        existingEntriesByKey[smallKey]?.length ?? 0;
+                      return (
+                        <td key={purity.id}>
+                          <input
+                            ref={(el) => {
+                              if (!inputRefs.current[rowIndex]) {
+                                inputRefs.current[rowIndex] = [];
+                              }
+                              inputRefs.current[rowIndex][colIndex] = el;
+                            }}
+                            type="number"
+                            className="daily-sales-input"
+                            min="0"
+                            step="0.001"
+                            value={getSavedValue(counter.id, purity.id)}
+                            onChange={(e) =>
+                              updateSalesValue(
+                                counter.id,
+                                purity.id,
+                                e.target.value
+                              )
                             }
-                            inputRefs.current[rowIndex][colIndex] = el;
-                          }}
-                          type="number"
-                          className="daily-sales-input"
-                          min="0"
-                          step="0.001"
-                          value={getSavedValue(counter.id, purity.id)}
-                          onChange={(e) =>
-                            updateSalesValue(
-                              counter.id,
-                              purity.id,
-                              e.target.value
-                            )
-                          }
-                        />
-                      </td>
-                    ))}
+                          />
+                          {duplicateCount > 1 ? (
+                            <div style={{ fontSize: 11, color: "#a00" }}>
+                              {duplicateCount} duplicate(s) on server
+                            </div>
+                          ) : null}
+                        </td>
+                      );
+                    })}
                     <td className="row-total">
                       {calculateRowTotal(counter.id).toFixed(2)}
                     </td>
